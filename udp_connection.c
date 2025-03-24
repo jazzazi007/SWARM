@@ -38,31 +38,26 @@ int main(int ac, char **av) {
     joy.roll = 1500;
     joy.throttle = 1500;
     joy.yaw = 1500;
-    sts.mission_state = 0;     //here the mission starts to defined as 0, this means the mission is still not excuted, but there is data being recieved.
-    sts.N_gain = 3.0;
-    sts.last_los_angle = -10;
-    sts.last_flight_path_angle = -2;
-    sts.k_gain = 0.8;
 
 
     if (ac != 3) {
         fprintf(stderr, "Usage: %s <IP address> <UDP port> example: ./gnc.out 127.0.0.1 5555\n", av[0]);
         return -1;
     }
-    sock.udp_port = atoi(av[2]);
-    sock.ip_addr = av[1];
+    sock.udp_port[0] = atoi(av[2]);
+    sock.ip_addr[0] = av[1];
     printf("IP address: %s, UDP port: %d\n", sock.ip_addr, sock.udp_port);
     // Create socket
-    sock.sockfd = open_socket();
+    sock.sockfd[0] = open_socket();
     // Set up the server address (SITL's IP address and UDP port)
 
     memset(&sock.autopilot_addr, 0, sizeof(sock.autopilot_addr));
-    sock.autopilot_addr.sin_family = AF_INET;
-    sock.autopilot_addr.sin_port = htons(sock.udp_port); // Updated port
-    sock.autopilot_addr.sin_addr.s_addr = inet_addr(sock.ip_addr); // Updated address
-    if (bind(sock.sockfd, (struct sockaddr*)&sock.autopilot_addr, sizeof(sock.autopilot_addr)) < 0) {
+    sock.autopilot_addr[0].sin_family = AF_INET;
+    sock.autopilot_addr[0].sin_port = htons(sock.udp_port); // Updated port
+    sock.autopilot_addr[0].sin_addr.s_addr = inet_addr(sock.ip_addr); // Updated address
+    if (bind(sock.sockfd[0], (struct sockaddr*)&sock.autopilot_addr[0], sizeof(sock.autopilot_addr[0])) < 0) {
         perror("bind");
-        close(sock.sockfd);
+        close(sock.sockfd[0]);
         return -1;
     }
     struct timeval tv;
@@ -70,14 +65,14 @@ int main(int ac, char **av) {
     tv.tv_usec = 0;
     setsockopt(sock.sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     char test_buffer[1024];
-    if (recvfrom(sock.sockfd, test_buffer, sizeof(test_buffer), 0, NULL, NULL) < 0) {
+    if (recvfrom(sock.sockfd[0], test_buffer, sizeof(test_buffer), 0, NULL, NULL) < 0) {
             perror("Failed to connect to UAV");
-            close(sock.sockfd);
+            close(sock.sockfd[0]);
             return -1;
     }
     tv.tv_sec = 0;
     tv.tv_usec = 0;
-    setsockopt(sock.sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(sock.sockfd[0], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     printf("Socket bound\n");
     
     //prepare the thread data
