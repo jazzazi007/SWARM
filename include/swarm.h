@@ -188,23 +188,13 @@ typedef struct{
     char *ip_addr[3];
 }sockport;
 
-typedef struct {
-    sockport *sock;
-    joy_s *joy;
-    sts *sts;
-    mavlink_str *mavlink_str;
-    gains *gains;
-    pthread_mutex_t mutex;
-} thread_data_t;
 
 
-void enter_phase(sts *sts);
 void send_override();
-void *joystick_thread(void *arg);
-void *gnc_thread(void *arg);
-void *readautopilot_thread(void *arg);
-void *sendautopilot_thread(void *arg);
-void enter_phase(sts *sts);
+void readautopilot_thread(mavlink_str *mavlink_str, sockport *socket, sts *sts, int i);
+void send_autopilot(sockport *sock, sts *sts, joy_s *joy);
+
+
 
 
 

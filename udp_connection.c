@@ -8,7 +8,7 @@
  *              It sends heartbeat messages to a specified IP address and UDP port, and listens
  *              for incoming MAVLink messages.
  */
-#include "../include/gnc.h"
+#include "../include/swarm.h"
 
 atomic_int stop_flag = 0;
 
@@ -23,14 +23,51 @@ static int open_socket()
     return sock;
 }
 
+static void connect_udp(sockport *sock, char **av)
+{
+    for (int i; i < 3; i++)
+    {
+        sock->udp_port[i] = atoi(av[i + 1]);
+        sock->ip_addr[i] = "127.0.0.1";
+        printf("IP address: %s, UDP port: %d\n", sock->ip_addr, sock->udp_port);
+        // Create socket
+        sock->sockfd[i] = open_socket();
+        // Set up the server address (SITL's IP address and UDP port)
+    
+        memset(&sock->autopilot_addr[i], 0, sizeof(sock->autopilot_addr[i]));
+        sock->autopilot_addr[i].sin_family = AF_INET;
+        sock->autopilot_addr[i].sin_port = htons(sock->udp_port[i]); // Updated port
+        sock->autopilot_addr[i].sin_addr.s_addr = inet_addr(sock->ip_addr[i]); // Updated address
+        if (bind(sock->sockfd[i], (struct sockaddr*)&sock->autopilot_addr[i], sizeof(sock->autopilot_addr[i])) < 0) {
+            perror("bind");
+            close(sock->sockfd[i]);
+            exit(1);
+        }
+        struct timeval tv;
+        tv.tv_sec = 5;  // 5 seconds timeout
+        tv.tv_usec = 0;
+        setsockopt(sock->sockfd[i], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        char test_buffer[1024];
+        if (recvfrom(sock->sockfd[i], test_buffer, sizeof(test_buffer), 0, NULL, NULL) < 0) {
+                perror("Failed to connect to UAV");
+                close(sock->sockfd[i]);
+                exit(1);
+        }
+        tv.tv_sec = 0;
+        tv.tv_usec = 0;
+        setsockopt(sock->sockfd[i], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        printf("Socket bound\n");   
+    }
+    exit(0);
+}
+
 int main(int ac, char **av) {
-    thread_data_t thread_data;
     sockport sock;
     sts sts;
     mavlink_str mavlink_str;
     gains gains;
-    pthread_t thread[4];
-    memset(&thread_data, 0, sizeof(thread_data));  // Initialize memory to zero
+
+
     memset(&sock, 0, sizeof(sock));  // Initialize memory to zero
     memset(&sts, 0, sizeof(sts));  // Initialize memory to zero
     joy_s joy;
@@ -44,93 +81,12 @@ int main(int ac, char **av) {
         fprintf(stderr, "Usage: %s <IP address> <UDP port> example: ./gnc.out 127.0.0.1 5555\n", av[0]);
         return -1;
     }
-    sock.udp_port[0] = atoi(av[2]);
-    sock.ip_addr[0] = av[1];
-    printf("IP address: %s, UDP port: %d\n", sock.ip_addr, sock.udp_port);
-    // Create socket
-    sock.sockfd[0] = open_socket();
-    // Set up the server address (SITL's IP address and UDP port)
+    // Initialize the socket
+    connect_udp(&sock, av);
+    while (1)
+    {
 
-    memset(&sock.autopilot_addr, 0, sizeof(sock.autopilot_addr));
-    sock.autopilot_addr[0].sin_family = AF_INET;
-    sock.autopilot_addr[0].sin_port = htons(sock.udp_port); // Updated port
-    sock.autopilot_addr[0].sin_addr.s_addr = inet_addr(sock.ip_addr); // Updated address
-    if (bind(sock.sockfd[0], (struct sockaddr*)&sock.autopilot_addr[0], sizeof(sock.autopilot_addr[0])) < 0) {
-        perror("bind");
-        close(sock.sockfd[0]);
-        return -1;
     }
-    struct timeval tv;
-    tv.tv_sec = 5;  // 5 seconds timeout
-    tv.tv_usec = 0;
-    setsockopt(sock.sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    char test_buffer[1024];
-    if (recvfrom(sock.sockfd[0], test_buffer, sizeof(test_buffer), 0, NULL, NULL) < 0) {
-            perror("Failed to connect to UAV");
-            close(sock.sockfd[0]);
-            return -1;
-    }
-    tv.tv_sec = 0;
-    tv.tv_usec = 0;
-    setsockopt(sock.sockfd[0], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    printf("Socket bound\n");
-    
-    //prepare the thread data
-    pthread_mutex_init(&thread_data.mutex, NULL);
-    thread_data.sock = &sock;
-    thread_data.joy = &joy;
-    thread_data.sts = &sts;
-    thread_data.mavlink_str = &mavlink_str;
-    thread_data.gains = &gains;
-    //create threads
-    if (!pthread_create(&thread[0], NULL, readautopilot_thread, &thread_data))
-        {
-            printf("Read autopilot thread created successfully.\n");
-            if (!pthread_create(&thread[1], NULL, sendautopilot_thread, &thread_data))
-            {
-                printf("Send autopilot thread created successfully.\n");
-                if (!pthread_create(&thread[2], NULL, joystick_thread, &thread_data))
-                {
-                    printf("Joystick thread created successfully.\n");
-                    if (!pthread_create(&thread[3], NULL, gnc_thread, &thread_data))
-                        printf("GNC thread created successfully.\n");
-                    else
-                        {
-                            perror("pthread_create");
-                            return -1;
-                        }
-                }
-                else
-                    {
-                        perror("pthread_create");
-                        return -1;
-                    }
-            }
-            else
-                {
-                    perror("pthread_create");
-                    return -1;
-                }
-        }
-    else
-        {
-            perror("pthread_create");
-            return -1;
-        }
-    printf("Press Enter to stop the threads...\n");
-    getchar();  // Wait for user input
-
-    // Set stop flag to signal threads to stop
-    stop_flag = 1;
-
-    // Wait for threads to finish
-    pthread_join(thread[0], NULL);
-    pthread_join(thread[1], NULL);
-    pthread_join(thread[2], NULL);
-    pthread_join(thread[3], NULL);
-    //destroy data in mutex
-    pthread_mutex_destroy(&thread_data.mutex);
-
     printf("Tasks completed.\n");
     close(sock.sockfd);
     return 0;

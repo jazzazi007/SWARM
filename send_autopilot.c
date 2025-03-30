@@ -9,7 +9,7 @@
  *
  */
 
-#include "../include/gnc.h"
+#include "../include/swarm.h"
 
 #include <time.h>
 //#define _POSIX_C_SOURCE 199309L
@@ -31,67 +31,6 @@ typedef struct {
     double lon;
     float alt;
 } waypoint_t;
-
-
-bool wait_for_ack(sockport *sock, uint16_t command_id, int timeout_us) {
-    uint8_t buf[BUFFER_LENGTH];
-    mavlink_message_t msg;
-    mavlink_status_t status;
-    fd_set readfds;
-    struct timeval tv;
-    int maxfd = sock->sockfd + 1;
-
-    // Set timeout
-    tv.tv_sec = 0;
-    tv.tv_usec = timeout_us;
-
-    while (timeout_us > 0) {
-        FD_ZERO(&readfds);
-        FD_SET(sock->sockfd, &readfds);
-
-        int ret = select(maxfd, &readfds, NULL, NULL, &tv);
-        if (ret > 0) {
-            ssize_t recvlen = recvfrom(sock->sockfd, buf, BUFFER_LENGTH, 0, NULL, NULL);
-            if (recvlen > 0) {
-                for (int i = 0; i < recvlen; i++) {
-                    if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &msg, &status)) {
-                        // Check for COMMAND_ACK
-                        if (msg.msgid == MAVLINK_MSG_ID_COMMAND_ACK) {
-                            mavlink_command_ack_t ack;
-                            mavlink_msg_command_ack_decode(&msg, &ack);
-                            if (ack.command == command_id) {
-                                if (ack.result == MAV_RESULT_ACCEPTED) {
-                                    printf("Command %d acknowledged\n", command_id);
-                                    return true;
-                                } else {
-                                    printf("Command %d failed with result %d\n", 
-                                           command_id, ack.result);
-                                    return false;
-                                }
-                            }
-                        }
-                        // Check for MISSION_ACK
-                        else if (msg.msgid == MAVLINK_MSG_ID_MISSION_ACK) {
-                            mavlink_mission_ack_t ack;
-                            mavlink_msg_mission_ack_decode(&msg, &ack);
-                            if (ack.type == MAV_MISSION_ACCEPTED) {
-                                printf("Mission accepted\n");
-                                return true;
-                            } else {
-                                printf("Mission failed with result %d\n", ack.type);
-                                return false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        //usleep(10000);  // 10ms sleep
-        timeout_us -= 10000;
-    }
-    printf("Timeout waiting for acknowledgment\n");
-    return false;
-}
 
 int send_mavlink_message(int sockfd, struct sockaddr_in* target_addr) {
     uint8_t buf[BUFFER_LENGTH];
@@ -330,17 +269,14 @@ void send_override(joy_s *joy, sockport *sock)
 
 
 
-void *sendautopilot_thread(void *arg)
+void send_autopilot(sockport *sock, sts *sts, joy_s *joy)
 {
-    thread_data_t *thread_data = (thread_data_t *)arg;
-    sockport *sock = thread_data->sock;
-    sts *sts = thread_data->sts;
-    //joy_s *joy = thread_data->joy;
-    uint8_t buf[BUFFER_LENGTH];
-    mavlink_message_t msg;
-    uint16_t len;
+
     while (!stop_flag)
     {
+        uint8_t buf[BUFFER_LENGTH];
+        mavlink_message_t msg;
+        uint16_t len;
         switch (sts->mission_state) {
             case 0: // Do nothing
                 //usleep(1000000);

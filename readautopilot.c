@@ -8,7 +8,7 @@
  *
  */
 
- #include "../include/gnc.h"
+ #include "../include/swarm.h"
 
  #define MAX_WAYPOINTS 4
 
@@ -51,13 +51,8 @@ void request_mission(sockport *sock)
            sizeof(sock->autopilot_addr));
 }
 
-void *readautopilot_thread(void *arg)
+void readautopilot_thread(mavlink_str *mavlink_str, sockport *socket, sts *sts, int i)
 {
-    thread_data_t *thread_data = (thread_data_t *)arg;
-    
-    mavlink_str *mavlink_str = thread_data->mavlink_str;
-    sockport *socket = thread_data->sock;
-    sts *sts = thread_data->sts;
 
     mission_data_t mission_data;
     memset(&mission_data, 0, sizeof(mission_data));
@@ -72,9 +67,6 @@ void *readautopilot_thread(void *arg)
     sendto(socket->sockfd, socket->buf, socket->len, 0, (struct sockaddr*)&socket->autopilot_addr, sizeof(socket->autopilot_addr));
     //printf("recieved heart beat %s:%d\n", socket->ip_addr, socket->udp_port);
 
-    if (sts->mission_state == 0)
-        request_mission(socket);
-
     // Check for incoming data
     struct timeval tv;
     fd_set readfds;
@@ -83,7 +75,7 @@ void *readautopilot_thread(void *arg)
     tv.tv_usec = 0;
 
     FD_ZERO(&readfds);
-    FD_SET(socket->sockfd, &readfds);
+    FD_SET(socket->sockfd[i], &readfds);
 
     int retval = select(socket->sockfd + 1, &readfds, NULL, NULL, &tv);
 
@@ -164,139 +156,9 @@ void *readautopilot_thread(void *arg)
                         //printf("Received ATTITUDE: Yaw: %f\n", sts->attitude_uav[2]);
 
                     }
-                    if(sts->mission_state == 0){
-                       // sleep(0.9);
-                       // request_mission(socket);
-                        if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_MISSION_COUNT) {
-                            mavlink_mission_count_t mission_count;
-                            mavlink_msg_mission_count_decode(&mavlink_str->msg, &mission_count);
-                            count = (int)mission_count.count;
-                         //printf("Received mission count: %d\n", mission_count.count);
-                            
-                            // Request first mission item
-                            mavlink_message_t msg;
-                            uint8_t buf[BUFFER_LENGTH];
-                            mavlink_msg_mission_request_int_pack(
-                                GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
-                                DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
-                                0,  // Start with sequence 0
-                                MAV_MISSION_TYPE_MISSION
-                            );
-                            uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-                            sendto(socket->sockfd, buf, len, 0, 
-                                (struct sockaddr*)&socket->autopilot_addr, 
-                                sizeof(socket->autopilot_addr));
-                        }
-                        if (count == 4){
-                            //printf("Mission count is 3\n");
-                            if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_MISSION_ITEM_INT) {
-                                mavlink_mission_item_int_t mission_item;
-                                mavlink_msg_mission_item_int_decode(&mavlink_str->msg, &mission_item);
-
-
-                                
-                                // Store values immediately when received, before any state changes
-                                if (mission_item.seq == 1) {
-                                    // Add validation to prevent zero values
-                                    if (mission_item.x != 0 && mission_item.y != 0) {
-                                        sts->t_lat = (double)mission_item.x/1e7;
-                                        sts->t_lon = (double)mission_item.y/1e7;
-                                        sts->t_alt = mission_item.z; // VI don't forget to set the altitude of target (sea level alt)
-                                       // printf("Target waypoint stored: lat=%f, lon=%f\n",
-                                         //      sts->t_lat, sts->t_lon);
-                                        
-                                    }
-                                }
-                                if (mission_item.seq == 2) {
-                                    // Add validation to prevent zero values
-                                    if (mission_item.x != 0 && mission_item.y != 0) {
-                                        sts->heading_lat_uav = (double)mission_item.x/1e7;
-                                        sts->heading_lon_uav = (double)mission_item.y/1e7;
-                                        sts->heading_alt_uav = mission_item.z;
-                                        //printf("Heading waypoint stored: lat=%f, lon=%f, alt=%.2f\n",
-                                          //     sts->heading_lat_uav, sts->heading_lon_uav, mission_item.z);
-                                    }
-                                }
-                                if (mission_item.seq == 3) {
-                                    // Add validation to prevent zero values
-                                    
-                                        sts->N_gain = mission_item.param1;
-                                        sts->last_los_angle = mission_item.param2;
-                                        sts->last_flight_path_angle = mission_item.param3;
-                                        sts->k_gain = mission_item.param4;
-                                        printf("param 1 %f\n", sts->N_gain);
-                                        printf("param 2 %f\n", sts->last_los_angle);
-                                        printf("param 3 %f\n", sts->last_flight_path_angle);
-                                        printf("param 4 %f\n", sts->k_gain);
-                                        //printf("Heading waypoint stored: lat=%f, lon=%f, alt=%.2f\n",
-                                          //     sts->heading_lat_uav, sts->heading_lon_uav, mission_item.z);
-                                    
-                                }
-
-                                // Only calculate bearing if we have valid coordinates
-                                if (sts->heading_lat_uav != 0 && sts->t_lat != 0) {
-                                    // Add debug prints
-                                    //printf("Calculating bearing using:\n");
-                                   // printf("From: lat=%f, lon=%f\n", sts->heading_lat_uav, sts->heading_lon_uav);
-                                   // printf("To: lat=%f, lon=%f\n", sts->t_lat, sts->t_lon);
-                                    
-                                    double lat1 = sts->t_lat * DEG_TO_RAD;
-                                    double lon1 = sts->t_lon * DEG_TO_RAD;
-                                    double lat2 = sts->heading_lat_uav * DEG_TO_RAD;
-                                    double lon2 = sts->heading_lon_uav * DEG_TO_RAD;
-                                
-                                    double dlon = lon2 - lon1;
-                                    double y = sin(dlon) * cos(lat2);
-                                    double x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon);
-                                    double bearing = atan2(y, x);
-                                
-                                    bearing = bearing * RAD_TO_DEG;
-                                    bearing = fmod((bearing + 360.0), 360.0);
-                                    
-                                    // Only update bearing if calculation produced valid result
-                                    if (!isnan(bearing)) {
-                                        sts->t2m_heading = bearing;
-                                        printf("New bearing to target calculated: %f\n", sts->t2m_heading);
-                                    }
-                                }
-
-                                // Store in your status structure
-                                if (mission_item.seq < MAX_WAYPOINTS) {
-                                    mission_data.mission_items[mission_item.seq] = mission_item;
-                                    mission_data.num_waypoints = mission_item.seq + 1;
-                                }
-                                
-                                // Request next item if not last
-                                if (!mission_item.current) {
-                                    mavlink_message_t msg;
-                                    uint8_t buf[BUFFER_LENGTH];
-                                    mavlink_msg_mission_request_int_pack(
-                                        GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
-                                        DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
-                                        mission_item.seq + 1,
-                                        MAV_MISSION_TYPE_MISSION
-                                    );
-                                    uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-                                    sendto(socket->sockfd, buf, len, 0, 
-                                        (struct sockaddr*)&socket->autopilot_addr, 
-                                        sizeof(socket->autopilot_addr));
-                                }
-                            
-
-                                if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_MISSION_CURRENT) {
-                                    mavlink_mission_current_t mission_current;
-                                    mavlink_msg_mission_current_decode(&mavlink_str->msg, &mission_current);
-                                    //printf("Current mission sequence: %d\n", mission_current.seq);
-                                    mission_data.current_mission_seq = mission_current.seq;
-                                }
-                            }
-                        }
-                    }
-
                 }
             }
         }
-
     } else 
         printf("No data\n");
     }
