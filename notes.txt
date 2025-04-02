@@ -1,0 +1,171 @@
+mission waypoint
+
+
+typedef struct {
+    double lat;
+    double lon;
+    float alt;
+} waypoint_t;
+
+// Modify send_mission to use acknowledgments
+int send_mission(sockport *sock, sts *sts, int id) {
+    uint8_t buf[BUFFER_LENGTH];
+    mavlink_message_t msg;
+    uint16_t len;
+    const int num_waypoints = 4;
+    mavlink_mission_item_int_t mission_item;
+
+    for (int retry = 0; retry < MISSION_RETRY_COUNT; retry++) 
+    {
+
+        mavlink_msg_mission_clear_all_pack(
+            GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
+            DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
+            MAV_MISSION_TYPE_MISSION
+        );
+        
+        // Send mission count
+        mavlink_msg_mission_count_pack(
+            GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
+            DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
+            5, MAV_MISSION_TYPE_MISSION, 0
+        );
+
+        len = mavlink_msg_to_send_buffer(buf, &msg);
+        sendto(sock->sockfd[id], buf, len, 0, 
+            (struct sockaddr*)&sock->autopilot_addr[id], 
+            sizeof(sock->autopilot_addr[id]));
+        
+       // printf("Sending mission count: %d waypoints (Retry %d)\n", num_waypoints, retry + 1);
+
+        // Wait for first mission request (seq=0)
+        memset(&mission_item, 0, sizeof(mission_item));
+        mission_item.target_system = DEFAULT_TARGET_SYSTEM;
+        mission_item.target_component = DEFAULT_TARGET_COMPONENT;
+        mission_item.seq = 0;  // First waypoint
+        mission_item.frame = MAV_FRAME_GLOBAL_RELATIVE_ALT_INT;
+        mission_item.command = MAV_CMD_NAV_WAYPOINT;
+        mission_item.current = 1;  // This is the current waypoint
+        mission_item.autocontinue = 1;
+        mission_item.param1 = 0;        // No hold time
+        mission_item.param2 = 100.0;    // Acceptance radius for plane
+        mission_item.param3 = 0;        // Pass through waypoint
+        mission_item.param4 = 0;        // No specific yaw
+        mission_item.x = (int32_t)(sts->stable_lat[0] * 1e7);    
+        mission_item.y = (int32_t)(sts->stable_lon[0] * 1e7);    
+        mission_item.z = sts->req_alt;  
+        mission_item.mission_type = MAV_MISSION_TYPE_MISSION;
+
+        mavlink_msg_mission_item_int_encode(
+            GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg, &mission_item
+        );
+
+        len = mavlink_msg_to_send_buffer(buf, &msg);
+        sendto(sock->sockfd[id], buf, len, 0, 
+            (struct sockaddr*)&sock->autopilot_addr[id], 
+            sizeof(sock->autopilot_addr[id]));
+
+        //printf("Sent waypoint 0: lat=%.7f, lon=%.7f, alt=%.2f\n",
+            //   sts->home_lat, sts->home_lon, sts->req_alt);
+        for (int i = 0; i < num_waypoints; i++) 
+        {
+            // Send first waypoint
+            memset(&mission_item, 0, sizeof(mission_item));
+            mission_item.target_system = DEFAULT_TARGET_SYSTEM;
+            mission_item.target_component = DEFAULT_TARGET_COMPONENT;
+            mission_item.seq = i + 1;  // First waypoint
+            mission_item.frame = MAV_FRAME_GLOBAL_RELATIVE_ALT_INT;
+            mission_item.command = MAV_CMD_NAV_WAYPOINT;
+            mission_item.current = 0;  // This is the current waypoint
+            mission_item.autocontinue = 1;
+            mission_item.param1 = 0;        // No hold time
+            mission_item.param2 = 100.0;    // Acceptance radius for plane
+            mission_item.param3 = 0;        // Pass through waypoint
+            mission_item.param4 = 0;        // No specific yaw
+            mission_item.x = (int32_t)(sts->stable_lat[i] * 1e7);    
+            mission_item.y = (int32_t)(sts->stable_lon[i] * 1e7);    
+            mission_item.z = sts->stable_alt[i];  
+            mission_item.mission_type = MAV_MISSION_TYPE_MISSION;
+
+            mavlink_msg_mission_item_int_encode(
+                GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg, &mission_item
+            );
+
+            len = mavlink_msg_to_send_buffer(buf, &msg);
+            sendto(sock->sockfd[id], buf, len, 0, 
+                    (struct sockaddr*)&sock->autopilot_addr[id], 
+                    sizeof(sock->autopilot_addr[id]));
+
+           // printf("Sent waypoint 0: lat=%.7f, lon=%.7f, alt=%.2f\n",
+                  // sts->req_lat, sts->req_lon, sts->req_alt);
+        //printf("Mission upload failed, retrying...\n");
+        }
+    }
+
+    return -1;
+}
+
+// Function to send MAVLink SET_ATTITUDE_TARGET
+void set_pitch(sockport *sock, sts *sts, int id) {
+    uint8_t buf[1024];
+    mavlink_message_t msg;
+    uint16_t len;
+
+    mavlink_set_attitude_target_t attitude_target = {0};
+    attitude_target.time_boot_ms = 0;
+    attitude_target.target_system = 1;   // Autopilot system ID
+    attitude_target.target_component = 1; // Autopilot component ID
+    attitude_target.type_mask = 0b00000111; // Ignore roll, yaw, and body rates
+    attitude_target.q[0] = sts->q[0];
+    attitude_target.q[1] = sts->q[1];
+    attitude_target.q[2] = sts->q[2];
+    attitude_target.q[3] = sts->q[3];
+    attitude_target.thrust = 0.9;  // 50% thrust
+
+    // Encode message
+    mavlink_msg_set_attitude_target_encode(255, 0, &msg, &attitude_target);
+    len = mavlink_msg_to_send_buffer(buf, &msg);
+
+    // Send message
+    sendto(sock->sockfd[id], buf, len, 0, 
+                    (struct sockaddr*)&sock->autopilot_addr[id], 
+                    sizeof(sock->autopilot_addr[id]));
+
+    //printf("Sent pitch command: %.2f degrees\n", sts->flight_path_angle);
+}
+
+
+//test to send data
+int send_mavlink_message(int sockfd, struct sockaddr_in* target_addr) {
+    uint8_t buf[BUFFER_LENGTH];
+    mavlink_message_t msg;
+    uint16_t len;
+
+    // Pack heartbeat message
+    mavlink_msg_heartbeat_pack(
+        GCS_SYSTEM_ID,           // Source system
+        GCS_COMPONENT_ID,        // Source component
+        &msg,
+        MAV_TYPE_GCS,           // Type = Ground Control Station
+        MAV_AUTOPILOT_INVALID,  // Autopilot type
+        MAV_MODE_MANUAL_ARMED,  // System mode
+        0,                      // Custom mode
+        MAV_STATE_ACTIVE       // System state
+    );
+
+    // Copy message to send buffer
+    len = mavlink_msg_to_send_buffer(buf, &msg);
+
+    // Send message
+    ssize_t bytes_sent = sendto(sockfd, buf, len, 0, 
+                               (struct sockaddr*)target_addr, 
+                               sizeof(struct sockaddr_in));
+    
+    if (bytes_sent == -1) {
+        perror("Error sending message");
+        return -1;
+    }
+
+    printf("Sent message with length: %d\n", len);
+    return 0;
+}

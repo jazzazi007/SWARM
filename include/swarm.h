@@ -30,11 +30,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
-#define WINDOW_WIDTH 1600
-#define WINDOW_HEIGHT 1200
-#define POINT_RADIUS 5
-#define TRAJECTORY_RADIUS 100
-#define SPEED 0.0005
+#define UAV_COUNT 3
 
 #define BUFFER_LENGTH 2041
 #define DEFAULT_TARGET_SYSTEM 1     // Default to system ID 1 (typical for autopilot)
@@ -54,68 +50,47 @@
 
 // Add this define at the top
 #define DO_JUMP_COMMAND 177  // MAV_CMD_DO_JUMP
-
-#define GUIDED_2_ATTACK 1
-
 // Add this function to check for acknowledgments
-
-
-extern atomic_int stop_flag;
-
 typedef struct{
 //sensors reading from the autopilot
-    double gps_lat;
-    double gps_lon;
-    double gps_alt;
+    double gps_lat[UAV_COUNT];
+    double gps_lon[UAV_COUNT];
+    double gps_alt[UAV_COUNT];
 
-    double heading;
-    double airspeed;
-    double groundspeed;
-    double alt_hud;
+    double heading [UAV_COUNT];
+    double airspeed[UAV_COUNT];
+    double groundspeed[UAV_COUNT];
+    double alt_hud[UAV_COUNT];
 
     //home position
-    double home_lat;
-    double home_lon;
-    double home_alt;
+    double home_lat[UAV_COUNT];
+    double home_lon[UAV_COUNT];
+    double home_alt[UAV_COUNT];
 //end
 
-    double t2m_distance; //missile to target distance 
-    double t2m_altitude;
-    double bearing_error;
-    double bearing;
+    double t2m_distance[UAV_COUNT]; //missile to target distance 
+    double t2m_altitude[UAV_COUNT]; //missile to target altitude
+    double bearing_error[UAV_COUNT]; //bearing error
+    double bearing[UAV_COUNT]; //bearing
 
     //phases
-    double req_lat;
-    double req_lon;
-    double req_alt;
-    double t_displacement_x;
-    double t_displacement_y;
-    double t_lat;
-    double t_lon;
-    double t_alt;
-    double t2m_heading;
-    double heading_lat_uav;
-    double heading_lon_uav;
-    double heading_alt_uav;
-    double stable_lat[4];
-    double stable_lon[4];
-    int stable_alt[4];
-    //LOS
-    double los_angle;
-    double last_los_angle;
-    //param
-    double last_pitch_angle;
-    float N_gain;
-    float k_gain;
+    double req_lat[UAV_COUNT];
+    double req_lon[UAV_COUNT];
+    double req_alt[UAV_COUNT];
+    double t_displacement_x[UAV_COUNT];
+    double t_displacement_y[UAV_COUNT];
+    double t_lat[UAV_COUNT];
+    double t_lon[UAV_COUNT];
+    double t_alt[UAV_COUNT];
+    double t2m_heading[UAV_COUNT];
+    double heading_lat_uav[UAV_COUNT];
+    double heading_lon_uav[UAV_COUNT];
+    double heading_alt_uav[UAV_COUNT];
+    double stable_lat[UAV_COUNT][4];
+    double stable_lon[UAV_COUNT][4];
+    int stable_alt[UAV_COUNT][4];
 
-    double flight_path_angle; //desired flight path angle
-    double last_flight_path_angle; // achieved flight path angle
-    float q[4]; // quaternion
-    double desired_roll_angle;
-
-    int mission_state;
-
-    double attitude_uav[3]; //pitch, roll, yaw
+    int mission_state; // 0: do nothing, 1: set guided mode, 2: set auto mode, 3: attack mode
 } sts;
 
 typedef struct{
@@ -154,10 +129,10 @@ typedef struct{
 } gains;
 
 typedef struct {
-    int pitch; //joy 3
-    int roll; //joy 2
-    int throttle; //joy 1
-    int yaw; //joy 0
+    uint16_t pitch[UAV_COUNT]; //joy 3
+    uint16_t roll[UAV_COUNT]; //joy 2
+    uint16_t throttle[UAV_COUNT]; //joy 1
+    uint16_t yaw[UAV_COUNT]; //joy 0
 } joy_s;
 
 typedef struct{
@@ -180,22 +155,16 @@ typedef struct{
 }mavlink_str;
 
 typedef struct{
-    struct sockaddr_in autopilot_addr[3];
-    uint8_t buf[2041];
-    ssize_t len;
-    int sockfd[3];
-    int udp_port[3];
-    char *ip_addr[3];
+    struct sockaddr_in autopilot_addr[UAV_COUNT];
+    uint8_t buf[BUFFER_LENGTH];
+    uint16_t len;
+    int sockfd[UAV_COUNT];
+    int udp_port[UAV_COUNT];
+    char *ip_addr[UAV_COUNT];
 }sockport;
 
-
-
-void send_override();
-void readautopilot_thread(mavlink_str *mavlink_str, sockport *socket, sts *sts, int i);
-void send_autopilot(sockport *sock, sts *sts, joy_s *joy);
-
-
-
-
-
+void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id);
+void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id);
+void coverage_area_triangle(sts *sts, int id);
+void rc_init(joy_s *joy, sts *sts, gains *gains);
 #endif

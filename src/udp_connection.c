@@ -10,8 +10,6 @@
  */
 #include "../include/swarm.h"
 
-atomic_int stop_flag = 0;
-
 static int open_socket()
 {
     int sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -25,11 +23,11 @@ static int open_socket()
 
 static void connect_udp(sockport *sock, char **av)
 {
-    for (int i; i < 3; i++)
+    for (int i=0; i < UAV_COUNT; i++)
     {
         sock->udp_port[i] = atoi(av[i + 1]);
         sock->ip_addr[i] = "127.0.0.1";
-        printf("IP address: %s, UDP port: %d\n", sock->ip_addr, sock->udp_port);
+        printf("IP address: %s, UDP port: %d\n", sock->ip_addr[i], sock->udp_port[i]);
         // Create socket
         sock->sockfd[i] = open_socket();
         // Set up the server address (SITL's IP address and UDP port)
@@ -71,23 +69,48 @@ int main(int ac, char **av) {
     memset(&sock, 0, sizeof(sock));  // Initialize memory to zero
     memset(&sts, 0, sizeof(sts));  // Initialize memory to zero
     joy_s joy;
-    joy.pitch = 1500;
-    joy.roll = 1500;
-    joy.throttle = 1500;
-    joy.yaw = 1500;
+    for (int id = 0; id < UAV_COUNT; id++)
+    {
+        joy.pitch[id] = 1500;
+        joy.roll[id] = 1500;
+        joy.throttle[id] = 1500;
+        joy.yaw[id] = 1500;
+    }
 
 
-    if (ac != 3) {
-        fprintf(stderr, "Usage: %s <IP address> <UDP port> example: ./gnc.out 127.0.0.1 5555\n", av[0]);
+    if (ac != 4) {
+        fprintf(stderr, "Usage: %s <UDP port> <UDP port> <UDP port> example: ./gnc.out 5760 5761 5762\n", av[0]);
         return -1;
     }
     // Initialize the socket
     connect_udp(&sock, av);
+
+    mavlink_heartbeat_t heartbeat;
+    uint8_t *buf;
+    memset(&buf, 0, sizeof(buf));
+    heartbeat.type = MAV_TYPE_GCS;
+    heartbeat.autopilot = MAV_AUTOPILOT_INVALID;
+    heartbeat.base_mode = MAV_MODE_MANUAL_ARMED;
+    heartbeat.custom_mode = 0;
+    heartbeat.system_status = MAV_STATE_ACTIVE;
+    mavlink_msg_heartbeat_encode(1, 200, &mavlink_str.msg, &heartbeat);
+    sock.len = mavlink_msg_to_send_buffer(buf, &mavlink_str.msg);
+
     while (1)
     {
-
+        for (int id = 0; id < UAV_COUNT; id++)
+        {
+            //printf("ID: %d\n", id);
+            //printf("sockfd: %d\n", sock.sockfd[id]);
+            //printf("IP address: %s, UDP port: %d\n", sock.ip_addr[id], sock.udp_port[id]);
+            read_autopilot(&mavlink_str, &sock, &sts, id);
+            coverage_area_triangle(&sts, id);
+            rc_init(&joy, &sts, &gains);
+            send_autopilot(&sock, &sts, &joy, id);
+        }
     }
     printf("Tasks completed.\n");
-    close(sock.sockfd);
+    for(int id = 0; id < UAV_COUNT; id++)
+        close(sock.sockfd[id]);
     return 0;
 }
