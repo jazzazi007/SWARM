@@ -21,7 +21,6 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <SDL2/SDL.h>
 #include <math.h>
 #include <fcntl.h>
 #include <linux/joystick.h>
