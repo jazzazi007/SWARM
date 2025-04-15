@@ -63,7 +63,7 @@ int main(int ac, char **av) {
     sockport sock;
     sts sts;
     mavlink_str mavlink_str;
-    //gains gains;
+    gains gains;
 
 
     memset(&sock, 0, sizeof(sock));  // Initialize memory to zero
@@ -97,6 +97,8 @@ int main(int ac, char **av) {
     sock.len = mavlink_msg_to_send_buffer(buf, &mavlink_str.msg);
     printf("Sending heartbeat message to autopilot...\n");
 
+    sts.mission_state = 0;
+
 
     while (1)
     {
@@ -106,8 +108,8 @@ int main(int ac, char **av) {
             //printf("sockfd: %d\n", sock.sockfd[id]);
             //printf("IP address: %s, UDP port: %d\n", sock.ip_addr[id], sock.udp_port[id]);
             read_autopilot(&mavlink_str, &sock, &sts, id);
-            //coverage_area_triangle(&sts, id);
-            //rc_init(&joy, &sts, &gains);
+            coverage_area_triangle(&sts, id);
+            rc_init(&joy, &sts, &gains);
             send_autopilot(&sock, &sts, &joy, id);
            // usleep(10000); // Sleep for 10ms
         }
