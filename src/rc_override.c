@@ -45,8 +45,8 @@ static void calculate_bearing_alt(sts *sts, int id)
 
     sts->t2m_altitude[id] = sts->gps_alt[id] - sts->req_alt[id];
 
-    printf("ID: %d >> Current heading: %.2f°, Bearing to home: %.2f°, Error: %.2f°, different alt: %.2f\n", 
-           id, sts->heading[id], sts->bearing[id], sts->bearing_error[id], sts->t2m_altitude[id]);
+    //printf("ID: %d >> Current heading: %.2f°, Bearing to home: %.2f°, Error: %.2f°, different alt: %.2f\n", 
+      //     id, sts->heading[id], sts->bearing[id], sts->bearing_error[id], sts->t2m_altitude[id]);
 }
 
 static void rc_drive(sts *sts, joy_s *joy, gains *gains, int id)

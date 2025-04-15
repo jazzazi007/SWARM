@@ -56,7 +56,7 @@ static void connect_udp(sockport *sock, char **av)
         setsockopt(sock->sockfd[i], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
         printf("Socket bound\n");   
     }
-    exit(0);
+    //exit(0);
 }
 
 int main(int ac, char **av) {
@@ -86,7 +86,7 @@ int main(int ac, char **av) {
     connect_udp(&sock, av);
 
     mavlink_heartbeat_t heartbeat;
-    uint8_t *buf;
+    uint8_t buf[BUFFER_LENGTH];
     memset(&buf, 0, sizeof(buf));
     heartbeat.type = MAV_TYPE_GCS;
     heartbeat.autopilot = MAV_AUTOPILOT_INVALID;
@@ -95,6 +95,8 @@ int main(int ac, char **av) {
     heartbeat.system_status = MAV_STATE_ACTIVE;
     mavlink_msg_heartbeat_encode(1, 200, &mavlink_str.msg, &heartbeat);
     sock.len = mavlink_msg_to_send_buffer(buf, &mavlink_str.msg);
+    printf("Sending heartbeat message to autopilot...\n");
+
 
     while (1)
     {
@@ -103,10 +105,11 @@ int main(int ac, char **av) {
             //printf("ID: %d\n", id);
             //printf("sockfd: %d\n", sock.sockfd[id]);
             //printf("IP address: %s, UDP port: %d\n", sock.ip_addr[id], sock.udp_port[id]);
-            read_autopilot(&mavlink_str, &sock, &sts, id);
+          //  read_autopilot(&mavlink_str, &sock, &sts, id);
             coverage_area_triangle(&sts, id);
             rc_init(&joy, &sts, &gains);
             send_autopilot(&sock, &sts, &joy, id);
+           // usleep(10000); // Sleep for 10ms
         }
     }
     printf("Tasks completed.\n");

@@ -49,7 +49,7 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
                     // Process the specific message (e.g., HEARTBEAT)
                     if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
                         mavlink_msg_heartbeat_decode(&mavlink_str->msg, &mavlink_str->heartbeat_msg);
-                        //printf("Received HEARTBEAT: Type: %d, Autopilot: %d\n", mavlink_str->heartbeat_msg.type, mavlink_str->heartbeat_msg.autopilot);
+                        printf("Received HEARTBEAT: Type: %d, Autopilot: %d\n", mavlink_str->heartbeat_msg.type, mavlink_str->heartbeat_msg.autopilot);
                     }
                     /*if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT)
                     {
@@ -67,8 +67,9 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
                         sts->gps_lat[id] = (double)mavlink_str->global_position_int.lat/1e7;
                         sts->gps_lon[id] = (double)mavlink_str->global_position_int.lon/1e7;
                         sts->gps_alt[id] = (double)mavlink_str->global_position_int.alt/1e3;
-                        //printf("Received GPS_RAW_INT: Lat: %f, Lon: %f\n", sts->gps_lat, sts->gps_lon);
-                        //printf("Received GPS_RAW_INT: Alt: %f\n", sts->gps_alt);
+                        printf("RCV ID: %d\n", id);
+                        printf("Received GPS_RAW_INT: Lat: %f, Lon: %f\n", sts->gps_lat[id], sts->gps_lon[id]);
+                        printf("Received GPS_RAW_INT: Alt: %f\n", sts->gps_alt[id]);
                     }
                     if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_VFR_HUD)
                     {
@@ -99,7 +100,7 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
         }
     } else 
         printf("No data\n");
-    printf("Exiting readautopilot_thread\n");
-    close(socket->sockfd[id]);
+   // printf("Exiting readautopilot\n");
+    //close(socket->sockfd[id]);
     return ;
 }

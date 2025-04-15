@@ -1,3 +1,11 @@
+opeerate on 
+
+./Tools/autotest/sim_vehicle.py -v ArduPlane -f plane --instance 0 --out=udp:127.0.0.1:14550 --console --map --out 127.0.0.1:5760
+
+./Tools/autotest/sim_vehicle.py -v ArduPlane -f plane --instance 1 --out=udp:127.0.0.1:14551 --console --map --out 127.0.0.1:5761
+
+./Tools/autotest/sim_vehicle.py -v ArduPlane -f plane --instance 2 --out=udp:127.0.0.1:14552 --console --map --out 127.0.0.1:5762
+
 mission waypoint
 
 
