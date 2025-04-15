@@ -63,7 +63,7 @@ int main(int ac, char **av) {
     sockport sock;
     sts sts;
     mavlink_str mavlink_str;
-    gains gains;
+    //gains gains;
 
 
     memset(&sock, 0, sizeof(sock));  // Initialize memory to zero
@@ -105,9 +105,9 @@ int main(int ac, char **av) {
             //printf("ID: %d\n", id);
             //printf("sockfd: %d\n", sock.sockfd[id]);
             //printf("IP address: %s, UDP port: %d\n", sock.ip_addr[id], sock.udp_port[id]);
-          //  read_autopilot(&mavlink_str, &sock, &sts, id);
-            coverage_area_triangle(&sts, id);
-            rc_init(&joy, &sts, &gains);
+            read_autopilot(&mavlink_str, &sock, &sts, id);
+            //coverage_area_triangle(&sts, id);
+            //rc_init(&joy, &sts, &gains);
             send_autopilot(&sock, &sts, &joy, id);
            // usleep(10000); // Sleep for 10ms
         }

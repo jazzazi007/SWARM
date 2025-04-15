@@ -102,7 +102,7 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
     uint16_t len;
 
     switch (sts->mission_state) {
-        case 1: // Do nothing
+        case 0: // Do nothing
         mavlink_msg_command_long_pack(
             GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
             DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
@@ -118,13 +118,10 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
         if (ret == -1) {
             perror("sendto failed");
         }
-        printf("ret: %d\n", ret);
-        printf("Sending MAV_CMD_DO_SET_MODE: Base mode: %d, Custom mode: %d\n", 
-            MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, PLANE_MODE_RTL);
        // printf("Setting Plane RTL mode\n");
             //usleep(1000000);
             break;
-        case 0: // Set GUIDED mode for fixed-wing
+        case 1: // Set GUIDED mode for fixed-wing
             mavlink_msg_command_long_pack(
                 GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
                 DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
