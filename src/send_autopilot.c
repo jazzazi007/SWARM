@@ -95,8 +95,35 @@ void send_override(joy_s *joy, sockport *sock, int id)
     //printf("Sent RC_OVERRIDE message\n");
 }
 
+void send_position(sts *sts, sockport *sock, int id)
+{
+    uint8_t buf[BUFFER_LENGTH];
+    mavlink_message_t msg;
+    uint16_t len;
+
+    // Pack the SET_POSITION_TARGET_GLOBAL_INT message
+    mavlink_msg_set_position_target_global_int_pack(
+        GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
+        DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
+        0, // Time boot ms
+        MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, // Coordinate frame
+        0x0007, // Type mask (only positions enabled)
+        sts->req_lat[id] * 1e7, // Latitude
+        sts->req_lon[id] * 1e7, // Longitude
+        sts->req_alt[id], // Altitude
+        0, 0, 0, // Velocity (not used)
+        0, 0, 0, // Acceleration (not used)
+        0, 0); // Yaw and yaw rate (not used)
+
+    len = mavlink_msg_to_send_buffer(buf, &msg);
+    sendto(sock->sockfd[id], buf, len, 0,
+            (struct sockaddr*)&sock->autopilot_addr[id], 
+            sizeof(sock->autopilot_addr[id]));
+}
+
 void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
 {
+    (void)joy;
     uint8_t buf[BUFFER_LENGTH];
     mavlink_message_t msg;
     uint16_t len;
@@ -135,7 +162,8 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
                     (struct sockaddr*)&sock->autopilot_addr[id], 
                     sizeof(sock->autopilot_addr[id]));
             printf("Setting Plane GUIDED mode\n");
-            send_override(joy, sock, id);
+            //send_override(joy, sock, id);
+            send_position(sts, sock, id);
             break;
     }
    // printf("Send autopilot exited\n");

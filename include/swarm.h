@@ -28,6 +28,7 @@
 #define M_PI 3.14159265358979323846
 #include <pthread.h>
 #include <stdatomic.h>
+#include <SDL2/SDL.h>
 
 #define UAV_COUNT 3
 

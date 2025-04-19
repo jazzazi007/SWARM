@@ -2,7 +2,8 @@ CC = cc
 CFALGS = -Wall -Wextra -Wno-address-of-packed-member
 # adapt the following falgs...
 # gcc -o gnc gnc.c -lSDL2 -lm
-SRCS = src/udp_connection.c src/rc_override.c src/readautopilot.c src/send_autopilot.c src/swarm.c
+SRCS = src/udp_connection.c src/rc_override.c src/readautopilot.c src/send_autopilot.c \
+		src/display.c src/swarm.c
 OBJS = $(SRCS:.c=.o)
 NAME = swarm
 all: $(NAME)
