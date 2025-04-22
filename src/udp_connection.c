@@ -78,7 +78,7 @@ int main(int ac, char **av) {
     }
 
 
-    if (ac != 4) {
+    if (ac != (UAV_COUNT + 1)) {
         fprintf(stderr, "Usage: %s <UDP port> <UDP port> <UDP port> example: ./gnc.out 5760 5761 5762\n", av[0]);
         return -1;
     }

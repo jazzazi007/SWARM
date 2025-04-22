@@ -30,7 +30,7 @@
 #include <stdatomic.h>
 #include <SDL2/SDL.h>
 
-#define UAV_COUNT 3
+#define UAV_COUNT 1
 
 #define BUFFER_LENGTH 2041
 #define DEFAULT_TARGET_SYSTEM 1     // Default to system ID 1 (typical for autopilot)

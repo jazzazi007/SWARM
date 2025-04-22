@@ -101,24 +101,36 @@ void send_position(sts *sts, sockport *sock, int id)
     mavlink_message_t msg;
     uint16_t len;
 
+    // Convert coordinates to MAVLink format
+    (void)sts;
+    int32_t lat_int = 3777490; //(int32_t)(sts->req_lat[id] * 1e7); // Latitude in degrees * 1E7
+    int32_t lon_int = -1224194; //(int32_t)(sts->req_lon[id] * 1e7); // Longitude in degrees * 1E7
+    float alt = 100;//sts->req_alt[id]; // Altitude in meters (relative to home)
+
     // Pack the SET_POSITION_TARGET_GLOBAL_INT message
     mavlink_msg_set_position_target_global_int_pack(
         GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
         DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
-        0, // Time boot ms
+        0, // Time boot ms (can be 0 if not used)
         MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, // Coordinate frame
-        0x0007, // Type mask (only positions enabled)
-        sts->req_lat[id] * 1e7, // Latitude
-        sts->req_lon[id] * 1e7, // Longitude
-        sts->req_alt[id], // Altitude
-        0, 0, 0, // Velocity (not used)
-        0, 0, 0, // Acceleration (not used)
-        0, 0); // Yaw and yaw rate (not used)
+        0x0007, // Type mask: Only position is enabled
+        lat_int, lon_int, alt, // Latitude, Longitude, Altitude
+        0, 0, 0, // Velocity (ignored)
+        0, 0, 0, // Acceleration (ignored)
+        0, 0 // Yaw, Yaw rate (ignored)
+    );
 
+    // Send the message to the autopilot
     len = mavlink_msg_to_send_buffer(buf, &msg);
-    sendto(sock->sockfd[id], buf, len, 0,
-            (struct sockaddr*)&sock->autopilot_addr[id], 
-            sizeof(sock->autopilot_addr[id]));
+    int ret = sendto(sock->sockfd[id], buf, len, 0,
+                     (struct sockaddr*)&sock->autopilot_addr[id],
+                     sizeof(sock->autopilot_addr[id]));
+    if (ret == -1) {
+        perror("sendto failed");
+    } else {
+        printf("Position target sent: Lat=%d, Lon=%d, Alt=%.2f\n",
+               lat_int, lon_int, alt);
+    }
 }
 
 void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
@@ -161,7 +173,7 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
             sendto(sock->sockfd[id], buf, len, 0, 
                     (struct sockaddr*)&sock->autopilot_addr[id], 
                     sizeof(sock->autopilot_addr[id]));
-            printf("Setting Plane GUIDED mode\n");
+           // printf("Setting Plane GUIDED mode\n");
             //send_override(joy, sock, id);
             send_position(sts, sock, id);
             break;
