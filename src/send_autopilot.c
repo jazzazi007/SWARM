@@ -95,7 +95,7 @@ void send_override(joy_s *joy, sockport *sock, int id)
     //printf("Sent RC_OVERRIDE message\n");
 }
 
-void send_position(sts *sts, sockport *sock, int id)
+/*void send_position(sts *sts, sockport *sock, int id)
 {
     uint8_t buf[BUFFER_LENGTH];
     mavlink_message_t msg;
@@ -130,6 +130,64 @@ void send_position(sts *sts, sockport *sock, int id)
     } else {
         printf("Position target sent: Lat=%d, Lon=%d, Alt=%.2f\n",
                lat_int, lon_int, alt);
+    }
+}*/
+
+void send_reposition(sockport *sock, int id) {
+    mavlink_message_t msg;
+    uint8_t buf[BUFFER_LENGTH];
+    uint16_t len;
+
+    // Convert coordinates to fixed-point
+    int32_t lat = -353627185;
+    int32_t lon = 149723204;
+    float alt = 100.0f; // Altitude in meters
+
+    // Pack the MAV_CMD_DO_REPOSITION command
+    mavlink_msg_command_int_pack(
+        GCS_SYSTEM_ID,           // Source system
+        GCS_COMPONENT_ID,        // Source component
+        &msg,
+        DEFAULT_TARGET_SYSTEM,   // Target system
+        DEFAULT_TARGET_COMPONENT,// Target component
+        MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, // Frame
+        MAV_CMD_DO_REPOSITION,   // Command ID
+        0,                       // Current
+        0,                       // Autocontinue
+        -1.0f,                  // Param1: Ground speed
+        MAV_DO_REPOSITION_FLAGS_CHANGE_MODE, // Param2: Reposition flags
+        0.0f,                   // Param3: Reserved
+        0.0f,                   // Param4: Yaw heading (NaN for unchanged)
+        lat,                // Param5: Latitude
+        lon,                // Param6: Longitude
+        alt                     // Param7: Altitude
+    );
+    /*mavlink_msg_command_int_pack(
+        GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg,
+        DEFAULT_TARGET_SYSTEM, DEFAULT_TARGET_COMPONENT,
+        MAV_FRAME_GLOBAL_RELATIVE_ALT_INT, // Frame
+        MAV_CMD_DO_REPOSITION,             // Command ID
+        0,                                 // Current
+        0,                                 // Autocontinue
+        -1.0f,                             // Ground speed
+        MAV_DO_REPOSITION_FLAGS_CHANGE_MODE, // Reposition flags
+        0.0f,                              // Reserved
+        NAN,                               // Yaw heading (NaN for unchanged)
+        lat,                               // Latitude
+        lon,                               // Longitude
+        alt                                // Altitude
+    );*/
+
+    // Send the command to the autopilot
+    len = mavlink_msg_to_send_buffer(buf, &msg);
+    int ret = sendto(sock->sockfd[id], buf, len, 0,
+                     (struct sockaddr*)&sock->autopilot_addr[id],
+                     sizeof(sock->autopilot_addr[id]));
+    if (ret == -1) {
+        perror("sendto failed");
+    } else {
+        printf("Reposition command sent: Lat=%d, Lon=%d, Alt=%.2f\n",
+               lat, lon, alt);
     }
 }
 
@@ -175,7 +233,10 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
                     sizeof(sock->autopilot_addr[id]));
            // printf("Setting Plane GUIDED mode\n");
             //send_override(joy, sock, id);
-            send_position(sts, sock, id);
+
+            break;
+        case 2: // Set AUTO mode for fixed-wing
+            send_reposition(sock, id);
             break;
     }
    // printf("Send autopilot exited\n");
