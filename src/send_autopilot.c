@@ -139,8 +139,8 @@ void send_reposition(sockport *sock, int id) {
     uint16_t len;
 
     // Convert coordinates to fixed-point
-    int32_t lat = -353627185;
-    int32_t lon = 149723204;
+    int32_t lat = -353627010; //-35.3627010
+    int32_t lon = 1491723847;
     float alt = 100.0f; // Altitude in meters
 
     // Pack the MAV_CMD_DO_REPOSITION command

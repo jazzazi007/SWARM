@@ -30,7 +30,7 @@
 #include <stdatomic.h>
 #include <SDL2/SDL.h>
 
-#define UAV_COUNT 3
+#define UAV_COUNT 1
 
 #define BUFFER_LENGTH 2041
 #define DEFAULT_TARGET_SYSTEM 1     // Default to system ID 1 (typical for autopilot)
@@ -89,6 +89,9 @@ typedef struct{
     double stable_lat[UAV_COUNT][4];
     double stable_lon[UAV_COUNT][4];
     int stable_alt[UAV_COUNT][4];
+
+    double last_pos_error[3][2];  // Previous position error for each UAV
+    double int_error[3][2];       // Integral error for each UAV
 
     int mission_state; // 0: do nothing, 1: set guided mode, 2: set auto mode, 3: attack mode
 } sts;
