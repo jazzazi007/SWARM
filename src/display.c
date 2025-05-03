@@ -3,8 +3,8 @@
 #include <math.h>
 #include <SDL2/SDL.h>
 
-#define GRID_SIZE 25          // 25x25 grid
-#define GRID_SPACING 10       // 10 meters per grid cell
+#define GRID_SIZE 45          // 25x25 grid
+#define GRID_SPACING 40       // 10 meters per grid cell
 #define SCREEN_WIDTH 800      // Keep screen size the same
 #define SCREEN_HEIGHT 800     // Make it square
 #define PIXELS_PER_GRID (SCREEN_WIDTH / GRID_SIZE) // Pixels per grid cell
@@ -39,9 +39,6 @@ static void gps_to_meters(double lat, double lon, double ref_lat, double ref_lon
     *y = haversine_distance(ref_lat, ref_lon, lat, ref_lon);
     if (lat < ref_lat) *y = -*y;
 }
-
-static double follower1_angle = 0.0;
-static double follower2_angle = M_PI;  // Start opposite to follower1
 
 void init_display(void) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -106,8 +103,8 @@ void update_display(sts *sts) {
         double x_meters, y_meters;
         
         // Convert GPS to meters relative to leader
-        gps_to_meters(sts->req_lat[i], sts->req_lon[i],
-                     sts->req_lat[0], sts->req_lon[0],
+        gps_to_meters(sts->gps_lat[i], sts->gps_lon[i],
+                     sts->gps_lat[0], sts->gps_lon[0],
                      &x_meters, &y_meters);
 
         // Convert to screen coordinates
@@ -129,7 +126,7 @@ void update_display(sts *sts) {
     }
 
     SDL_RenderPresent(renderer);
-    SDL_Delay(50);
+    SDL_Delay(1);
 }
 
 void close_display(void) {
@@ -139,7 +136,7 @@ void close_display(void) {
     display_initialized = 0;
 }
 
-int main() {
+/*int main() {
     // Create and initialize sts structure
     sts test_sts;
     
@@ -159,11 +156,11 @@ int main() {
     test_sts.gps_lon[2] = 149.1641270;  // ~100m West
     test_sts.gps_alt[2] = 100.0;
 
-    // Copy required positions to req_ fields
+    // Copy gpsuired positions to gps_ fields
     for (int i = 0; i < 3; i++) {
-        test_sts.req_lat[i] = test_sts.gps_lat[i];
-        test_sts.req_lon[i] = test_sts.gps_lon[i];
-        test_sts.req_alt[i] = test_sts.gps_alt[i];
+        test_sts.gps_lat[i] = test_sts.gps_lat[i];
+        test_sts.gps_lon[i] = test_sts.gps_lon[i];
+        test_sts.gps_alt[i] = test_sts.gps_alt[i];
     }
 
     // Initialize display
@@ -185,10 +182,10 @@ int main() {
         double lat_per_meter = 1.0 / (EARTH_RADIUS * DEG_TO_RAD);
         double lon_per_meter = 1.0 / (EARTH_RADIUS * cos(test_sts.gps_lat[0] * DEG_TO_RAD) * DEG_TO_RAD);
 
-        test_sts.req_lat[1] = test_sts.gps_lat[0] + y1 * lat_per_meter;
-        test_sts.req_lon[1] = test_sts.gps_lon[0] + x1 * lon_per_meter;
-        test_sts.req_lat[2] = test_sts.gps_lat[0] + y2 * lat_per_meter;
-        test_sts.req_lon[2] = test_sts.gps_lon[0] + x2 * lon_per_meter;
+        test_sts.gps_lat[1] = test_sts.gps_lat[0] + y1 * lat_per_meter;
+        test_sts.gps_lon[1] = test_sts.gps_lon[0] + x1 * lon_per_meter;
+        test_sts.gps_lat[2] = test_sts.gps_lat[0] + y2 * lat_per_meter;
+        test_sts.gps_lon[2] = test_sts.gps_lon[0] + x2 * lon_per_meter;
 
         // Update display
         update_display(&test_sts);
@@ -198,4 +195,4 @@ int main() {
     close_display();
 
     return 0;
-}
+}*/

@@ -51,16 +51,16 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
                         mavlink_msg_heartbeat_decode(&mavlink_str->msg, &mavlink_str->heartbeat_msg);
                         printf("Received HEARTBEAT: Type: %d, Autopilot: %d\n", mavlink_str->heartbeat_msg.type, mavlink_str->heartbeat_msg.autopilot);
                     }
-                    /*if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT)
+                    if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT)
                     {
                         mavlink_msg_gps_raw_int_decode(&mavlink_str->msg, &mavlink_str->gps_raw_int);
-                        sts->gps_lat = (double)mavlink_str->gps_raw_int.lat/1e7;
-                        sts->gps_lon = (double)mavlink_str->gps_raw_int.lon/1e7;
-                        sts->gps_alt = (double)mavlink_str->gps_raw_int.alt/1e3;
+                        sts->gps_lat[id] = (double)mavlink_str->gps_raw_int.lat/1e7;
+                        sts->gps_lon[id] = (double)mavlink_str->gps_raw_int.lon/1e7;
+                        sts->gps_alt[id] = (double)mavlink_str->gps_raw_int.alt/1e3;
                         //sts->gps_vel = (double)mavlink_str->gps_raw_int.vel/1e2;
-                        printf("Received GPS_RAW_INT: Lat: %f, Lon: %f\n", sts->gps_lat, sts->gps_lon);
+                        printf("Received GPS_RAW_INT: Lat: %f, Lon: %f\n", sts->gps_lat[id], sts->gps_lon[id]);
                         //printf("Received GPS_RAW_INT: Alt: %f, VD: %f\n", sts->gps_alt, sts->gps_vel);
-                    }*/
+                    }
                     if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_GLOBAL_POSITION_INT)
                     {
                         mavlink_msg_global_position_int_decode(&mavlink_str->msg, &mavlink_str->global_position_int);

@@ -106,9 +106,9 @@ int main(int ac, char **av) {
             //printf("sockfd: %d\n", sock.sockfd[id]);
             //printf("IP address: %s, UDP port: %d\n", sock.ip_addr[id], sock.udp_port[id]);
             read_autopilot(&mavlink_str, &sock, &sts, id);
-            coverage_area_triangle(&sts, id);
+            //coverage_area_triangle(&sts, id);
             //rc_init(&joy, &sts, &gains);
-            send_autopilot(&sock, &sts, &joy, id);
+            //send_autopilot(&sock, &sts, &joy, id);
            // usleep(10000); // Sleep for 10ms
            update_display(&sts);
         
