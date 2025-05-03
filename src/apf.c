@@ -1,7 +1,7 @@
 #ifndef APF_H
 #define APF_H
 
-#include "swarm.h"
+#include "../include/swarm.h"
 
 // APF Parameters
 #define ATTRACT_GAIN 1.0

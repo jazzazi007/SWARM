@@ -1,28 +1,67 @@
 #include "../include/swarm.h"
+#include <stdio.h>
+#include <math.h>
+#include <SDL2/SDL.h>
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#define GRID_SIZE 25          // 25x25 grid
+#define GRID_SPACING 10       // 10 meters per grid cell
+#define SCREEN_WIDTH 800      // Keep screen size the same
+#define SCREEN_HEIGHT 800     // Make it square
+#define PIXELS_PER_GRID (SCREEN_WIDTH / GRID_SIZE) // Pixels per grid cell
+#define CIRCLE_RADIUS 50.0  // 50 meters radius
+#define MOVEMENT_SPEED 0.0 // Movement speed in radians per frame
 
-void visualize_coordinates(sts *sts, int id) {
-    (void)id; // Unused parameter
+static SDL_Window *window = NULL;
+static SDL_Renderer *renderer = NULL;
+static int display_initialized = 0;
+
+// Add these helper functions at the top of the file
+static double haversine_distance(double lat1, double lon1, double lat2, double lon2) {
+    double dlat = (lat2 - lat1) * DEG_TO_RAD;
+    double dlon = (lon2 - lon1) * DEG_TO_RAD;
+    double lat1_rad = lat1 * DEG_TO_RAD;
+    double lat2_rad = lat2 * DEG_TO_RAD;
+    
+    double a = sin(dlat/2) * sin(dlat/2) +
+               cos(lat1_rad) * cos(lat2_rad) *
+               sin(dlon/2) * sin(dlon/2);
+    double c = 2 * atan2(sqrt(a), sqrt(1-a));
+    return EARTH_RADIUS * c;
+}
+
+static void gps_to_meters(double lat, double lon, double ref_lat, double ref_lon, 
+                         double *x, double *y) {
+    // Convert longitude difference to meters (x-axis)
+    *x = haversine_distance(ref_lat, ref_lon, ref_lat, lon);
+    if (lon < ref_lon) *x = -*x;
+    
+    // Convert latitude difference to meters (y-axis)
+    *y = haversine_distance(ref_lat, ref_lon, lat, ref_lon);
+    if (lat < ref_lat) *y = -*y;
+}
+
+static double follower1_angle = 0.0;
+static double follower2_angle = M_PI;  // Start opposite to follower1
+
+void init_display(void) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return;
     }
 
-    SDL_Window *window = SDL_CreateWindow("UAV Coordinates Visualization",
-                                          SDL_WINDOWPOS_CENTERED,
-                                          SDL_WINDOWPOS_CENTERED,
-                                          SCREEN_WIDTH,
-                                          SCREEN_HEIGHT,
-                                          SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("UAV Swarm Visualization",
+                            SDL_WINDOWPOS_CENTERED,
+                            SDL_WINDOWPOS_CENTERED,
+                            SCREEN_WIDTH,
+                            SCREEN_HEIGHT,
+                            SDL_WINDOW_SHOWN);
     if (!window) {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         SDL_Quit();
         return;
     }
 
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
         SDL_DestroyWindow(window);
@@ -30,36 +69,133 @@ void visualize_coordinates(sts *sts, int id) {
         return;
     }
 
-    int running = 1;
+    display_initialized = 1;
+}
+
+void update_display(sts *sts) {
+    if (!display_initialized) return;
+
     SDL_Event event;
-
-    while (running) {
-        // Handle events
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                running = 0;
-            }
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            close_display();
+            exit(0);
         }
-
-        // Clear screen
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Black background
-        SDL_RenderClear(renderer);
-
-        // Draw UAV coordinates
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red for UAVs
-        for (int i = 0; i < UAV_COUNT; i++) {
-            int x = (int)((sts->req_lon[i] - sts->gps_lon[0]) * 1e6) + SCREEN_WIDTH / 2;
-            int y = (int)((sts->req_lat[i] - sts->gps_lat[0]) * -1e6) + SCREEN_HEIGHT / 2;
-            SDL_RenderDrawPoint(renderer, x, y);
-        }
-
-        // Update screen
-        SDL_RenderPresent(renderer);
-
-        SDL_Delay(100); // Delay to control frame rate
     }
 
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+    // Clear screen
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    // Draw grid
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+    for (int i = 0; i <= GRID_SIZE; i++) {
+        int pos = i * PIXELS_PER_GRID;
+        SDL_RenderDrawLine(renderer, pos, 0, pos, SCREEN_HEIGHT);
+        SDL_RenderDrawLine(renderer, 0, pos, SCREEN_WIDTH, pos);
+    }
+
+    // Draw axes
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDrawLine(renderer, SCREEN_WIDTH/2, 0, SCREEN_WIDTH/2, SCREEN_HEIGHT);
+    SDL_RenderDrawLine(renderer, 0, SCREEN_HEIGHT/2, SCREEN_WIDTH, SCREEN_HEIGHT/2);
+
+    // Draw UAVs
+    double scale = (double)PIXELS_PER_GRID / GRID_SPACING;
+    for (int i = 0; i < UAV_COUNT; i++) {
+        double x_meters, y_meters;
+        
+        // Convert GPS to meters relative to leader
+        gps_to_meters(sts->req_lat[i], sts->req_lon[i],
+                     sts->req_lat[0], sts->req_lon[0],
+                     &x_meters, &y_meters);
+
+        // Convert to screen coordinates
+        int screen_x = SCREEN_WIDTH/2 + (int)(x_meters * scale);
+        int screen_y = SCREEN_HEIGHT/2 - (int)(y_meters * scale);
+        
+        // Draw UAV
+        if (i == 0) {
+            // Leader (yellow)
+            SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+            SDL_Rect leader = {screen_x-5, screen_y-5, 10, 10};
+            SDL_RenderFillRect(renderer, &leader);
+        } else {
+            // Followers (red)
+            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+            SDL_Rect follower = {screen_x-3, screen_y-3, 6, 6};
+            SDL_RenderFillRect(renderer, &follower);
+        }
+    }
+
+    SDL_RenderPresent(renderer);
+    SDL_Delay(50);
+}
+
+void close_display(void) {
+    if (renderer) SDL_DestroyRenderer(renderer);
+    if (window) SDL_DestroyWindow(window);
     SDL_Quit();
+    display_initialized = 0;
+}
+
+int main() {
+    // Create and initialize sts structure
+    sts test_sts;
+    
+    // Initialize GPS coordinates for testing
+    // Leader (UAV 0) at origin
+    test_sts.gps_lat[0] = -35.3627010;  // Leader latitude
+    test_sts.gps_lon[0] = 149.1652270;  // Leader longitude
+    test_sts.gps_alt[0] = 100.0;        // Leader altitude
+    
+    // Follower 1 - 100m East, 100m North of leader
+    test_sts.gps_lat[1] = -35.3618300;  // ~100m North
+    test_sts.gps_lon[1] = 149.1663270;  // ~100m East
+    test_sts.gps_alt[1] = 100.0;
+    
+    // Follower 2 - -100m East, 100m North of leader
+    test_sts.gps_lat[2] = -35.3720010;  // ~100m North
+    test_sts.gps_lon[2] = 149.1641270;  // ~100m West
+    test_sts.gps_alt[2] = 100.0;
+
+    // Copy required positions to req_ fields
+    for (int i = 0; i < 3; i++) {
+        test_sts.req_lat[i] = test_sts.gps_lat[i];
+        test_sts.req_lon[i] = test_sts.gps_lon[i];
+        test_sts.req_alt[i] = test_sts.gps_alt[i];
+    }
+
+    // Initialize display
+    init_display();
+
+    // Main loop
+    while (1) {
+        // Update follower positions
+        follower1_angle += MOVEMENT_SPEED;
+        follower2_angle += MOVEMENT_SPEED;
+
+        // Calculate new positions for followers (reduce radius to fit grid)
+        double x1 = (CIRCLE_RADIUS/2) * cos(follower1_angle);
+        double y1 = (CIRCLE_RADIUS/2) * sin(follower1_angle);
+        double x2 = (CIRCLE_RADIUS/2) * cos(follower2_angle);
+        double y2 = (CIRCLE_RADIUS/2) * sin(follower2_angle);
+
+        // Convert meters to GPS coordinates for followers
+        double lat_per_meter = 1.0 / (EARTH_RADIUS * DEG_TO_RAD);
+        double lon_per_meter = 1.0 / (EARTH_RADIUS * cos(test_sts.gps_lat[0] * DEG_TO_RAD) * DEG_TO_RAD);
+
+        test_sts.req_lat[1] = test_sts.gps_lat[0] + y1 * lat_per_meter;
+        test_sts.req_lon[1] = test_sts.gps_lon[0] + x1 * lon_per_meter;
+        test_sts.req_lat[2] = test_sts.gps_lat[0] + y2 * lat_per_meter;
+        test_sts.req_lon[2] = test_sts.gps_lon[0] + x2 * lon_per_meter;
+
+        // Update display
+        update_display(&test_sts);
+    }
+
+    // Close display
+    close_display();
+
+    return 0;
 }

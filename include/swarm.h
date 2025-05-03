@@ -30,7 +30,7 @@
 #include <stdatomic.h>
 #include <SDL2/SDL.h>
 
-#define UAV_COUNT 1
+#define UAV_COUNT 3
 
 #define BUFFER_LENGTH 2041
 #define DEFAULT_TARGET_SYSTEM 1     // Default to system ID 1 (typical for autopilot)
@@ -170,4 +170,7 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
 void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id);
 void coverage_area_triangle(sts *sts, int id);
 void rc_init(joy_s *joy, sts *sts, gains *gains);
+void init_display(void);
+void update_display(sts *sts);
+void close_display(void);
 #endif

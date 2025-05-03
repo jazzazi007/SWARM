@@ -65,7 +65,6 @@ int main(int ac, char **av) {
     mavlink_str mavlink_str;
     //gains gains;
 
-
     memset(&sock, 0, sizeof(sock));  // Initialize memory to zero
     memset(&sts, 0, sizeof(sts));  // Initialize memory to zero
     joy_s joy;
@@ -98,8 +97,7 @@ int main(int ac, char **av) {
     printf("Sending heartbeat message to autopilot...\n");
 
     sts.mission_state = 2;
-
-
+    init_display();
     while (1)
     {
         for (int id = 0; id < UAV_COUNT; id++)
@@ -112,10 +110,15 @@ int main(int ac, char **av) {
             //rc_init(&joy, &sts, &gains);
             send_autopilot(&sock, &sts, &joy, id);
            // usleep(10000); // Sleep for 10ms
+           update_display(&sts);
+        
+           // Add delay if needed
+           //usleep(50000);  // 50ms delay
         }
     }
     printf("Tasks completed.\n");
     for(int id = 0; id < UAV_COUNT; id++)
         close(sock.sockfd[id]);
+    close_display();
     return 0;
 }
