@@ -188,7 +188,7 @@ void update_display(sts *sts) {
     }
 
     SDL_RenderPresent(renderer);
-    SDL_Delay(1);
+    //SDL_Delay(1);
 }
 
 void close_display(void) {

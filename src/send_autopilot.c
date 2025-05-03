@@ -231,9 +231,11 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
             sendto(sock->sockfd[id], buf, len, 0, 
                     (struct sockaddr*)&sock->autopilot_addr[id], 
                     sizeof(sock->autopilot_addr[id]));
+            if (ret == -1) {
+                perror("sendto failed");
+            }
            // printf("Setting Plane GUIDED mode\n");
             //send_override(joy, sock, id);
-
             break;
         case 2: // Set AUTO mode for fixed-wing
             send_reposition(sock, id);

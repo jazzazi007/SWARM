@@ -96,7 +96,7 @@ int main(int ac, char **av) {
     sock.len = mavlink_msg_to_send_buffer(buf, &mavlink_str.msg);
     printf("Sending heartbeat message to autopilot...\n");
 
-    sts.mission_state = 2;
+    sts.mission_state = 1;
     init_display();
     while (1)
     {
@@ -106,15 +106,15 @@ int main(int ac, char **av) {
             //printf("sockfd: %d\n", sock.sockfd[id]);
             //printf("IP address: %s, UDP port: %d\n", sock.ip_addr[id], sock.udp_port[id]);
             read_autopilot(&mavlink_str, &sock, &sts, id);
-            //coverage_area_triangle(&sts, id);
+            coverage_area_triangle(&sts, id);
             //rc_init(&joy, &sts, &gains);
-            //send_autopilot(&sock, &sts, &joy, id);
+            send_autopilot(&sock, &sts, &joy, id);
            // usleep(10000); // Sleep for 10ms
-           update_display(&sts);
-        
            // Add delay if needed
            //usleep(50000);  // 50ms delay
         }
+        update_display(&sts);
+        usleep(250);
     }
     printf("Tasks completed.\n");
     for(int id = 0; id < UAV_COUNT; id++)
