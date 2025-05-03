@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #define GRID_SIZE 45          // 25x25 grid
 #define GRID_SPACING 40       // 10 meters per grid cell
@@ -14,6 +15,8 @@
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 static int display_initialized = 0;
+static TTF_Font* font = NULL;
+static const int LABEL_SPACING = 40; // Match GRID_SPACING
 
 // Add these helper functions at the top of the file
 static double haversine_distance(double lat1, double lon1, double lat2, double lon2) {
@@ -66,7 +69,37 @@ void init_display(void) {
         return;
     }
 
+    if (TTF_Init() < 0) {
+        printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
+        return;
+    }
+
+    font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10);
+    if (!font) {
+        printf("Failed to load font! SDL_ttf Error: %s\n", TTF_GetError());
+        return;
+    }
+
     display_initialized = 1;
+}
+
+static void render_text(const char* text, int x, int y) {
+    SDL_Color textColor = {200, 200, 200, 255}; // Light gray text
+    SDL_Surface* surface = TTF_RenderText_Solid(font, text, textColor);
+    if (surface) {
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture) {
+            SDL_Rect dstRect = {
+                x - surface->w/2,
+                y - surface->h/2,
+                surface->w,
+                surface->h
+            };
+            SDL_RenderCopy(renderer, texture, NULL, &dstRect);
+            SDL_DestroyTexture(texture);
+        }
+        SDL_FreeSurface(surface);
+    }
 }
 
 void update_display(sts *sts) {
@@ -96,6 +129,35 @@ void update_display(sts *sts) {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderDrawLine(renderer, SCREEN_WIDTH/2, 0, SCREEN_WIDTH/2, SCREEN_HEIGHT);
     SDL_RenderDrawLine(renderer, 0, SCREEN_HEIGHT/2, SCREEN_WIDTH, SCREEN_HEIGHT/2);
+
+    // After drawing grid lines, add meter labels
+    char label[16];
+    int center_x = SCREEN_WIDTH / 2;
+    int center_y = SCREEN_HEIGHT / 2;
+    
+    // Draw X-axis labels (every 40m)
+    for (int i = -GRID_SIZE/2; i <= GRID_SIZE/2; i++) {
+        int meters = i * GRID_SPACING;
+        int x = center_x + i * PIXELS_PER_GRID;
+        if (i % 2 == 0 && i != 0) { // Draw every other label
+            snprintf(label, sizeof(label), "%d", meters);
+            render_text(label, x, center_y + 15);
+        }
+    }
+    
+    // Draw Y-axis labels (every 40m)
+    for (int i = -GRID_SIZE/2; i <= GRID_SIZE/2; i++) {
+        int meters = i * GRID_SPACING;
+        int y = center_y - i * PIXELS_PER_GRID;
+        if (i % 2 == 0 && i != 0) { // Draw every other label
+            snprintf(label, sizeof(label), "%d", meters);
+            render_text(label, center_x + 15, y);
+        }
+    }
+
+    // Draw axis labels
+    render_text("meters", center_x + SCREEN_WIDTH/2 - 30, center_y + 15);
+    render_text("meters", center_x + 15, 20);
 
     // Draw UAVs
     double scale = (double)PIXELS_PER_GRID / GRID_SPACING;
@@ -130,6 +192,8 @@ void update_display(sts *sts) {
 }
 
 void close_display(void) {
+    if (font) TTF_CloseFont(font);
+    TTF_Quit();
     if (renderer) SDL_DestroyRenderer(renderer);
     if (window) SDL_DestroyWindow(window);
     SDL_Quit();
