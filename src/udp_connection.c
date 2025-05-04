@@ -96,7 +96,7 @@ int main(int ac, char **av) {
     sock.len = mavlink_msg_to_send_buffer(buf, &mavlink_str.msg);
     printf("Sending heartbeat message to autopilot...\n");
 
-    sts.mission_state = 1;
+    sts.mission_state = 2;
     init_display();
     while (1)
     {

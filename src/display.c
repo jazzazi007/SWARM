@@ -16,7 +16,7 @@ static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 static int display_initialized = 0;
 static TTF_Font* font = NULL;
-static const int LABEL_SPACING = 40; // Match GRID_SPACING
+//static const int LABEL_SPACING = 40; // Match GRID_SPACING
 
 // Add these helper functions at the top of the file
 static double haversine_distance(double lat1, double lon1, double lat2, double lon2) {

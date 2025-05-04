@@ -133,15 +133,15 @@ void send_override(joy_s *joy, sockport *sock, int id)
     }
 }*/
 
-void send_reposition(sockport *sock, int id) {
+void send_reposition(sockport *sock, sts *sts, int id) {
     mavlink_message_t msg;
     uint8_t buf[BUFFER_LENGTH];
     uint16_t len;
 
     // Convert coordinates to fixed-point
-    int32_t lat = -353627010; //-35.3627010
-    int32_t lon = 1491723847;
-    float alt = 100.0f; // Altitude in meters
+    int32_t lat = (int32_t)(sts->req_lat[id] * 1e7);
+    int32_t lon = (int32_t)(sts->req_lon[id] * 1e7);
+    float alt = 100;  // Altitude in meters
 
     // Pack the MAV_CMD_DO_REPOSITION command
     mavlink_msg_command_int_pack(
@@ -231,14 +231,13 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
             sendto(sock->sockfd[id], buf, len, 0, 
                     (struct sockaddr*)&sock->autopilot_addr[id], 
                     sizeof(sock->autopilot_addr[id]));
-            if (ret == -1) {
-                perror("sendto failed");
-            }
            // printf("Setting Plane GUIDED mode\n");
             //send_override(joy, sock, id);
             break;
         case 2: // Set AUTO mode for fixed-wing
-            send_reposition(sock, id);
+            if (id != 0)
+                send_reposition(sock, sts, id);
+            
             break;
     }
    // printf("Send autopilot exited\n");
