@@ -228,15 +228,9 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
                 0, 0, 0, 0, 0                     // Additional params
             );
             len = mavlink_msg_to_send_buffer(buf, &msg);
-            int ret_send = sendto(sock->sockfd[id], buf, len, 0, 
+            sendto(sock->sockfd[id], buf, len, 0, 
                     (struct sockaddr*)&sock->autopilot_addr[id], 
                     sizeof(sock->autopilot_addr[id]));
-<<<<<<< HEAD
-=======
-            if (ret_send == -1) {
-                perror("sendto failed");
-            }
->>>>>>> 2388823f4aa27ac32b35ac6fc70fc8c509b9453c
            // printf("Setting Plane GUIDED mode\n");
             //send_override(joy, sock, id);
             break;
