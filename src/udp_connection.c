@@ -102,16 +102,11 @@ int main(int ac, char **av) {
     {
         for (int id = 0; id < UAV_COUNT; id++)
         {
-            //printf("ID: %d\n", id);
-            //printf("sockfd: %d\n", sock.sockfd[id]);
-            //printf("IP address: %s, UDP port: %d\n", sock.ip_addr[id], sock.udp_port[id]);
             read_autopilot(&mavlink_str, &sock, &sts, id);
             coverage_area_triangle(&sts, id);
+            run_lyapunov(&sts);
             //rc_init(&joy, &sts, &gains);
             send_autopilot(&sock, &sts, &joy, id);
-           // usleep(10000); // Sleep for 10ms
-           // Add delay if needed
-           //usleep(50000);  // 50ms delay
         }
         update_display(&sts);
         usleep(250);

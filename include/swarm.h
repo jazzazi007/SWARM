@@ -173,4 +173,7 @@ void rc_init(joy_s *joy, sts *sts, gains *gains);
 void init_display(void);
 void update_display(sts *sts);
 void close_display(void);
+//Lyapunov
+void update_position_lyapunov(sts *sts, int id);
+void run_lyapunov(sts *sts);
 #endif

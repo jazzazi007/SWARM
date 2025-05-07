@@ -1,7 +1,10 @@
 #ifndef PSO_H
 #define PSO_H
 
-#include "swarm.h"
+#include "../include/swarm.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 #define NUM_PARTICLES 20
 #define NUM_DIMENSIONS 6  // 2 coordinates (lat, lon) for each of 3 UAVs
@@ -9,6 +12,8 @@
 #define W 0.729       // Inertia weight
 #define C1 2.05       // Cognitive coefficient
 #define C2 2.05       // Social coefficient
+#define MAX_POSITION_CHANGE 0.001  // Maximum position change in degrees (~100m)
+#define MAX_VELOCITY 0.0001       // Maximum velocity in degrees/iteration
 
 typedef struct {
     double position[NUM_DIMENSIONS];    // Current position
@@ -104,13 +109,28 @@ void update_particles(Particle *particles, double *gbest, sts *sts) {
             double r1 = (double)rand() / RAND_MAX;
             double r2 = (double)rand() / RAND_MAX;
             
-            // Update velocity
+            // Update velocity with constraints
             particles[i].velocity[j] = W * particles[i].velocity[j] +
                                      C1 * r1 * (particles[i].pbest[j] - particles[i].position[j]) +
                                      C2 * r2 * (gbest[j] - particles[i].position[j]);
             
+            // Clamp velocity
+            if (particles[i].velocity[j] > MAX_VELOCITY)
+                particles[i].velocity[j] = MAX_VELOCITY;
+            if (particles[i].velocity[j] < -MAX_VELOCITY)
+                particles[i].velocity[j] = -MAX_VELOCITY;
+            
             // Update position
-            particles[i].position[j] += particles[i].velocity[j];
+            double new_pos = particles[i].position[j] + particles[i].velocity[j];
+            
+            // Constrain position change relative to initial position
+            int uav_idx = j / 2;
+            double ref_pos = (j % 2 == 0) ? sts->gps_lat[uav_idx] : sts->gps_lon[uav_idx];
+            if (fabs(new_pos - ref_pos) > MAX_POSITION_CHANGE) {
+                new_pos = ref_pos + (new_pos > ref_pos ? MAX_POSITION_CHANGE : -MAX_POSITION_CHANGE);
+            }
+            
+            particles[i].position[j] = new_pos;
         }
         
         // Evaluate new position
@@ -159,4 +179,48 @@ void run_pso(sts *sts) {
         sts->req_lat[i] = gbest[i*2];
         sts->req_lon[i] = gbest[i*2+1];
     }
+}
+int main() {
+    // Create and initialize sts structure
+    sts test_sts;
+    
+    // Initialize leader (UAV 0) position - Center position
+    test_sts.gps_lat[0] = -35.3627010;
+    test_sts.gps_lon[0] = 149.1652270;
+    test_sts.gps_alt[0] = 100.0;
+
+    // Initialize follower 1 position - Slightly offset
+    test_sts.gps_lat[1] = -35.3627010 + 0.0001; // ~10m North
+    test_sts.gps_lon[1] = 149.1652270 + 0.0001; // ~10m East
+    test_sts.gps_alt[1] = 100.0;
+
+    // Initialize follower 2 position - Slightly offset
+    test_sts.gps_lat[2] = -35.3627010 - 0.0001; // ~10m South
+    test_sts.gps_lon[2] = 149.1652270 - 0.0001; // ~10m West
+    test_sts.gps_alt[2] = 100.0;
+
+    // Copy initial positions to requested positions
+    for (int i = 0; i < 3; i++) {
+        test_sts.req_lat[i] = test_sts.gps_lat[i];
+        test_sts.req_lon[i] = test_sts.gps_lon[i];
+        test_sts.req_alt[i] = test_sts.gps_alt[i];
+    }
+
+    printf("Initial UAV Positions:\n");
+    for (int i = 0; i < 3; i++) {
+        printf("UAV %d: Lat = %.7f, Lon = %.7f\n", 
+               i, test_sts.gps_lat[i], test_sts.gps_lon[i]);
+    }
+
+    // Run PSO algorithm
+    printf("\nRunning PSO optimization...\n\n");
+    run_pso(&test_sts);
+
+    printf("\nOptimized UAV Positions:\n");
+    for (int i = 0; i < 3; i++) {
+        printf("UAV %d: Lat = %.7f, Lon = %.7f\n", 
+               i, test_sts.req_lat[i], test_sts.req_lon[i]);
+    }
+
+    return 0;
 }
