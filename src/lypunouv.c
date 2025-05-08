@@ -19,17 +19,47 @@ typedef struct {
 
 // Add this function to collect stability data
 static void log_stability_data(int id, double v, double *pos_error, double *vel_error, 
-                             double u_lat, double u_lon, FILE *fp) {
+                             double u_lat, double u_lon) {
+    static FILE *fps[3] = {NULL, NULL, NULL}; // One file pointer for each UAV
+    static double last_write_time[3] = {0, 0, 0}; // Track last write time for each UAV
+
+    // Open a separate file for each UAV
+    if (!fps[id]) {
+        char filename[32];
+        snprintf(filename, sizeof(filename), "stability_data_uav%d.csv", id);
+        fps[id] = fopen(filename, "w");
+        if (fps[id]) {
+            fprintf(fps[id], "Time,UAV_ID,Lyapunov,PosError_Lat,PosError_Lon,VelError_Lat,VelError_Lon,Control_Lat,Control_Lon\n");
+        } else {
+            perror("Failed to open file for UAV");
+            return;
+        }
+    }
+
+    // Get the current time
     static double start_time = 0;
     if (start_time == 0) start_time = (double)clock() / CLOCKS_PER_SEC;
-    
     double current_time = (double)clock() / CLOCKS_PER_SEC - start_time;
-    
-    fprintf(fp, "%.3f,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n",
-            current_time, id, v,
-            pos_error[0], pos_error[1],
-            vel_error[0], vel_error[1],
-            u_lat, u_lon);
+
+    // Write to the file only if 0.25 seconds have passed since the last write
+    if (current_time - last_write_time[id] >= 0.25) {
+        fprintf(fps[id], "%.3f,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n",
+                current_time, id, v,
+                pos_error[0], pos_error[1],
+                vel_error[0], vel_error[1],
+                u_lat, u_lon);
+        last_write_time[id] = current_time;
+    }
+}
+
+void close_stability_logs(void) {
+    static FILE *fps[3] = {NULL, NULL, NULL};
+    for (int i = 0; i < 3; i++) {
+        if (fps[i]) {
+            fclose(fps[i]);
+            fps[i] = NULL;
+        }
+    }
 }
 
 // Lyapunov function calculation
@@ -93,12 +123,6 @@ static double meters_to_degrees(double meters, double latitude) {
 
 // Update UAV position using Lyapunov-based control
 void update_position_lyapunov(sts *sts, int id) {
-    static FILE *fp = NULL;
-    if (!fp) {
-        fp = fopen("stability_data.csv", "w");
-        fprintf(fp, "Time,UAV_ID,Lyapunov,PosError_Lat,PosError_Lon,VelError_Lat,VelError_Lon,Control_Lat,Control_Lon\n");
-    }
-
     double u_lat, u_lon;
     double pos_error[2], vel_error[2];
     
@@ -113,8 +137,8 @@ void update_position_lyapunov(sts *sts, int id) {
     double v = calculate_lyapunov(sts, id);
     calculate_control(sts, id, &u_lat, &u_lon);
     
-    // Log stability data
-    log_stability_data(id, v, pos_error, vel_error, u_lat, u_lon, fp);
+    // Log stability data for this UAV
+    log_stability_data(id, v, pos_error, vel_error, u_lat, u_lon);
     
     // Update position based on control inputs
     double scale = meters_to_degrees(DT, sts->gps_lat[id]);
