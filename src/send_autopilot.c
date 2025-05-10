@@ -137,12 +137,23 @@ void send_reposition(sockport *sock, sts *sts, int id) {
     mavlink_message_t msg;
     uint8_t buf[BUFFER_LENGTH];
     uint16_t len;
+    int32_t lat, lon;
+    float alt;
 
+    if (id ==0)
+    {
     // Convert coordinates to fixed-point
-    int32_t lat = (int32_t)(sts->req_lat[id] * 1e7);
-    int32_t lon = (int32_t)(sts->req_lon[id] * 1e7);
-    float alt = 100;  // Altitude in meters
-
+        lat = (int32_t)(-35.3708726 * 1e7);
+        lon = (int32_t)(149.1726422 * 1e7);
+        alt = 100;  // Altitude in meters
+    }
+    else
+    {
+        // Convert coordinates to fixed-point
+        lat = (int32_t)(sts->req_lat[id] * 1e7);
+        lon = (int32_t)(sts->req_lon[id] * 1e7);
+        alt = 100;  // Altitude in meters
+    }
     // Pack the MAV_CMD_DO_REPOSITION command
     mavlink_msg_command_int_pack(
         GCS_SYSTEM_ID,           // Source system
@@ -235,7 +246,7 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
             //send_override(joy, sock, id);
             break;
         case 2: // Set AUTO mode for fixed-wing
-            if (id != 0)
+            //if (id != 0)
                 send_reposition(sock, sts, id);
             
             break;

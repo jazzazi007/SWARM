@@ -19,26 +19,40 @@ typedef struct {
 
 // Add this function to collect stability data
 static void log_stability_data(int id, double v, double *pos_error, double *vel_error, 
-                             double u_lat, double u_lon) {
+                               double u_lat, double u_lon) {
     static FILE *fps[3] = {NULL, NULL, NULL}; // One file pointer for each UAV
     static double last_write_time[3] = {0, 0, 0}; // Track last write time for each UAV
+
+    // Validate UAV ID
+    if (id < 0 || id >= 3) {
+        fprintf(stderr, "Invalid UAV ID: %d\n", id);
+        return;
+    }
 
     // Open a separate file for each UAV
     if (!fps[id]) {
         char filename[32];
         snprintf(filename, sizeof(filename), "stability_data_uav%d.csv", id);
         fps[id] = fopen(filename, "w");
-        if (fps[id]) {
-            fprintf(fps[id], "Time,UAV_ID,Lyapunov,PosError_Lat,PosError_Lon,VelError_Lat,VelError_Lon,Control_Lat,Control_Lon\n");
-        } else {
-            perror("Failed to open file for UAV");
+        if (!fps[id]) {
+            perror("Failed to open file");
             return;
         }
+        // Write the header to the file
+        fprintf(fps[id], "Time,UAV_ID,Lyapunov,PosError_Lat,PosError_Lon,VelError_Lat,VelError_Lon,Control_Lat,Control_Lon\n");
+    }
+
+    // Validate input pointers
+    if (!pos_error || !vel_error) {
+        fprintf(stderr, "Null pointer passed to log_stability_data\n");
+        return;
     }
 
     // Get the current time
     static double start_time = 0;
-    if (start_time == 0) start_time = (double)clock() / CLOCKS_PER_SEC;
+    if (start_time == 0) {
+        start_time = (double)clock() / CLOCKS_PER_SEC;
+    }
     double current_time = (double)clock() / CLOCKS_PER_SEC - start_time;
 
     // Write to the file only if 0.25 seconds have passed since the last write
@@ -48,6 +62,7 @@ static void log_stability_data(int id, double v, double *pos_error, double *vel_
                 pos_error[0], pos_error[1],
                 vel_error[0], vel_error[1],
                 u_lat, u_lon);
+        fflush(fps[id]); // Ensure data is written to the file
         last_write_time[id] = current_time;
     }
 }
@@ -64,46 +79,27 @@ void close_stability_logs(void) {
 
 // Lyapunov function calculation
 static double calculate_lyapunov(sts *sts, int id) {
-    double pos_error[2], vel_error[2];
-    
+    double pos_error[2];
+
     // Position error (desired - current)
     pos_error[0] = sts->req_lat[id] - sts->gps_lat[id];
     pos_error[1] = sts->req_lon[id] - sts->gps_lon[id];
-    
-    // Velocity error (desired - current)
-    vel_error[0] = (pos_error[0] - sts->last_pos_error[id][0]) / DT;
-    vel_error[1] = (pos_error[1] - sts->last_pos_error[id][1]) / DT;
-    
-    // Lyapunov function V = 0.5*(pos_error^2 + vel_error^2)
-    return 0.5 * (pos_error[0]*pos_error[0] + pos_error[1]*pos_error[1] +
-                  vel_error[0]*vel_error[0] + vel_error[1]*vel_error[1]);
+
+    // Lyapunov function V = 0.5 * (pos_error^2)
+    return 0.5 * (pos_error[0] * pos_error[0] + pos_error[1] * pos_error[1]);
 }
 
 // Control law calculation
 static void calculate_control(sts *sts, int id, double *u_lat, double *u_lon) {
-    double pos_error[2], vel_error[2], int_error[2];
-    
+    double pos_error[2];
+
     // Position error
     pos_error[0] = sts->req_lat[id] - sts->gps_lat[id];
     pos_error[1] = sts->req_lon[id] - sts->gps_lon[id];
-    
-    // Velocity error
-    vel_error[0] = (pos_error[0] - sts->last_pos_error[id][0]) / DT;
-    vel_error[1] = (pos_error[1] - sts->last_pos_error[id][1]) / DT;
-    
-    // Integral error
-    sts->int_error[id][0] += pos_error[0] * DT;
-    sts->int_error[id][1] += pos_error[1] * DT;
-    int_error[0] = sts->int_error[id][0];
-    int_error[1] = sts->int_error[id][1];
-    
-    // Control law u = -K_P*pos_error - K_D*vel_error - K_I*int_error
-    *u_lat = -K_P * pos_error[0] - K_D * vel_error[0] - K_I * int_error[0];
-    *u_lon = -K_P * pos_error[1] - K_D * vel_error[1] - K_I * int_error[1];
-    
-    // Store current error for next iteration
-    sts->last_pos_error[id][0] = pos_error[0];
-    sts->last_pos_error[id][1] = pos_error[1];
+
+    // Control law u = -K_P * pos_error
+    *u_lat = -K_P * pos_error[0];
+    *u_lon = -K_P * pos_error[1];
 }
 
 static double meters_to_degrees(double meters, double latitude) {
@@ -124,34 +120,32 @@ static double meters_to_degrees(double meters, double latitude) {
 // Update UAV position using Lyapunov-based control
 void update_position_lyapunov(sts *sts, int id) {
     double u_lat, u_lon;
-    double pos_error[2], vel_error[2];
-    
-    // Position error calculation
-    pos_error[0] = sts->req_lat[id] - sts->gps_lat[id];
-    pos_error[1] = sts->req_lon[id] - sts->gps_lon[id];
-    
-    // Velocity error calculation
-    vel_error[0] = (pos_error[0] - sts->last_pos_error[id][0]) / DT;
-    vel_error[1] = (pos_error[1] - sts->last_pos_error[id][1]) / DT;
-    
-    double v = calculate_lyapunov(sts, id);
+
+    // Calculate control inputs
     calculate_control(sts, id, &u_lat, &u_lon);
-    
-    // Log stability data for this UAV
-    log_stability_data(id, v, pos_error, vel_error, u_lat, u_lon);
-    
+
     // Update position based on control inputs
     double scale = meters_to_degrees(DT, sts->gps_lat[id]);
     sts->req_lat[id] += u_lat * scale;
     sts->req_lon[id] += u_lon * scale;
-    
+
     // Keep altitude constant
     sts->req_alt[id] = sts->gps_alt[id];
+
+    // Calculate errors
+    double pos_error[2] = {sts->req_lat[id] - sts->gps_lat[id], sts->req_lon[id] - sts->gps_lon[id]};
+    double vel_error[2] = {0, 0}; // Replace with actual velocity error if available
+
+    // Log stability data for this UAV
+    double v = calculate_lyapunov(sts, id);
+    log_stability_data(id, v, pos_error, vel_error, u_lat, u_lon);
 }
 
 // Main Lyapunov control function
 void run_lyapunov(sts *sts) {
     // Initialize error storage if not already done
+    sts->req_lat[0] = -35.3708726;
+    sts->req_lon[0] = 149.1726422;
     static int initialized = 0;
     if (!initialized) {
         for (int i = 0; i < 3; i++) {
@@ -162,7 +156,7 @@ void run_lyapunov(sts *sts) {
         }
         initialized = 1;
     }
-    
+
     // Update positions for all UAVs
     for (int id = 0; id < 3; id++) {
         update_position_lyapunov(sts, id);
