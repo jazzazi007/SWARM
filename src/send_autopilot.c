@@ -139,6 +139,7 @@ void send_reposition(sockport *sock, sts *sts, int id) {
     uint16_t len;
     int32_t lat, lon;
     float alt;
+    float lioter = 0.0f;
 
     if (id ==0)
     {
@@ -154,6 +155,17 @@ void send_reposition(sockport *sock, sts *sts, int id) {
         lon = (int32_t)(sts->req_lon[id] * 1e7);
         alt = 100;  // Altitude in meters
     }
+    if (sts->t2m_distance[0] < 250)
+    {
+        lat = (int32_t)(-35.3708726 * 1e7);
+        lon = (int32_t)(149.1726422 * 1e7);
+        alt = 100;  // Altitude in meters
+        if (id == 0)
+            lioter = sts->loiter[0];
+        else
+            lioter = sts->loiter[id];
+        printf("Loitering for %d seconds of id: %d\n", sts->loiter[id], id);
+    }
     // Pack the MAV_CMD_DO_REPOSITION command
     mavlink_msg_command_int_pack(
         GCS_SYSTEM_ID,           // Source system
@@ -167,7 +179,7 @@ void send_reposition(sockport *sock, sts *sts, int id) {
         0,                       // Autocontinue
         -1.0f,                  // Param1: Ground speed
         MAV_DO_REPOSITION_FLAGS_CHANGE_MODE, // Param2: Reposition flags
-        0.0f,                   // Param3: Reserved
+        lioter,                   // Param3: Reserved
         0.0f,                   // Param4: Yaw heading (NaN for unchanged)
         lat,                // Param5: Latitude
         lon,                // Param6: Longitude
@@ -196,9 +208,6 @@ void send_reposition(sockport *sock, sts *sts, int id) {
                      sizeof(sock->autopilot_addr[id]));
     if (ret == -1) {
         perror("sendto failed");
-    } else {
-        printf("Reposition command sent: Lat=%d, Lon=%d, Alt=%.2f\n",
-               lat, lon, alt);
     }
 }
 

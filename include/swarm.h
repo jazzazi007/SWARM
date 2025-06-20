@@ -89,6 +89,7 @@ typedef struct{
     double stable_lat[UAV_COUNT][4];
     double stable_lon[UAV_COUNT][4];
     int stable_alt[UAV_COUNT][4];
+    int loiter[UAV_COUNT];
 
     double last_pos_error[3][2];  // Previous position error for each UAV
     double int_error[3][2];       // Integral error for each UAV
@@ -173,6 +174,8 @@ void rc_init(joy_s *joy, sts *sts, gains *gains);
 void init_display(void);
 void update_display(sts *sts);
 void close_display(void);
+void gps2meter(sts *sts);//
+void safe_lioter(sts *sts);
 //Lyapunov
 void update_position_lyapunov(sts *sts, int id);
 void run_lyapunov(sts *sts);

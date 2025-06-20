@@ -1,6 +1,6 @@
 #include "../include/swarm.h"
 
-static void gps2meter(sts *sts, int id)
+static void gps2meter_(sts *sts, int id)
 {
     double dlat = sts->gps_lat[id] - sts->req_lat[id];  
     double dlon = sts->gps_lon[id] - sts->req_lon[id];  
@@ -109,7 +109,7 @@ void rc_init(joy_s *joy, sts *sts, gains *gains)
     init_gains(gains);
     for (int id = 0; id < UAV_COUNT; id++)
     {
-        gps2meter(sts, id);
+        gps2meter_(sts, id);
         calculate_bearing_alt(sts, id);
         rc_drive(sts, joy, gains, id);
     }

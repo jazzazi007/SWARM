@@ -102,6 +102,8 @@ int main(int ac, char **av) {
     {
         for (int id = 0; id < UAV_COUNT; id++)
         {
+                safe_lioter(&sts);
+
             read_autopilot(&mavlink_str, &sock, &sts, id);
             coverage_area_triangle(&sts, id);
             run_lyapunov(&sts);

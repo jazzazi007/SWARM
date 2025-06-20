@@ -58,7 +58,7 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
                         sts->gps_lon[id] = (double)mavlink_str->gps_raw_int.lon/1e7;
                         sts->gps_alt[id] = (double)mavlink_str->gps_raw_int.alt/1e3;
                         //sts->gps_vel = (double)mavlink_str->gps_raw_int.vel/1e2;
-                        printf("Received GPS_RAW_INT: Lat: %f, Lon: %f\n", sts->gps_lat[id], sts->gps_lon[id]);
+                       // printf("Received GPS_RAW_INT: Lat: %f, Lon: %f\n", sts->gps_lat[id], sts->gps_lon[id]);
                         //printf("Received GPS_RAW_INT: Alt: %f, VD: %f\n", sts->gps_alt, sts->gps_vel);
                     }
                     if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_GLOBAL_POSITION_INT)
@@ -67,9 +67,9 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
                         sts->gps_lat[id] = (double)mavlink_str->global_position_int.lat/1e7;
                         sts->gps_lon[id] = (double)mavlink_str->global_position_int.lon/1e7;
                         sts->gps_alt[id] = (double)mavlink_str->global_position_int.alt/1e3;
-                        printf("RCV ID: %d\n", id);
+                        /*printf("RCV ID: %d\n", id);
                         printf("Received GPS_RAW_INT: Lat: %f, Lon: %f\n", sts->gps_lat[id], sts->gps_lon[id]);
-                        printf("Received GPS_RAW_INT: Alt: %f\n", sts->gps_alt[id]);
+                        printf("Received GPS_RAW_INT: Alt: %f\n", sts->gps_alt[id]);*/
                     }
                     if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_VFR_HUD)
                     {
@@ -87,7 +87,7 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
                         sts->home_lat[id] = (double)mavlink_str->home_position.latitude/1e7;
                         sts->home_lon[id] = (double)mavlink_str->home_position.longitude/1e7;
                         sts->home_alt[id] = (double)mavlink_str->home_position.altitude/1e3;
-                        printf("Received HOME_POSITION: ID: %d Lat: %f, Lon: %f\n", id, sts->home_lat[id], sts->home_lon[id]);
+                        //printf("Received HOME_POSITION: ID: %d Lat: %f, Lon: %f\n", id, sts->home_lat[id], sts->home_lon[id]);
                         //printf("Received HOME_POSITION: Alt: %f\n", sts->home_alt);
                     }
                     /*if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_MISSION_ITEM_REACHED)
