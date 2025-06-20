@@ -11,13 +11,9 @@ void safe_lioter(sts *sts)
     {
             sts->loiter[i] = init_loiter + (distance * turn);
             if (i+1 > UAV_COUNT/2)
-            {
                 turn+=2;
-            }
             else
-            {
                 turn+=1;
-            }
     }
 
 }
