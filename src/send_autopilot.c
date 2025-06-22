@@ -164,7 +164,6 @@ void send_reposition(sockport *sock, sts *sts, int id) {
             lioter = sts->loiter[0];
         else
             lioter = sts->loiter[id];
-        printf("Loitering for %d seconds of id: %d\n", sts->loiter[id], id);
     }
     // Pack the MAV_CMD_DO_REPOSITION command
     mavlink_msg_command_int_pack(
