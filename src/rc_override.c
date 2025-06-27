@@ -52,7 +52,8 @@ static void calculate_bearing_alt(sts *sts, int id)
 static void rc_drive(sts *sts, joy_s *joy, gains *gains, int id)
 {
     // calculate the rate alt and distance
-    gains->heading_rate = sts->bearing_error[id]/180; // roll
+    //gains->heading_rate = sts->bearing_error[id]/180; // roll
+    gains->heading_rate = (sts->desired_roll_angle[id] - sts->roll[id])/20; // roll
     gains->alt_rate = -sts->t2m_altitude[id]/100; // pitch
     gains->distance_rate = sts->t2m_distance[id]/500; // throttle
 

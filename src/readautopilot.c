@@ -90,6 +90,14 @@ void read_autopilot(mavlink_str *mavlink_str, sockport *socket, sts *sts, int id
                         //printf("Received HOME_POSITION: ID: %d Lat: %f, Lon: %f\n", id, sts->home_lat[id], sts->home_lon[id]);
                         //printf("Received HOME_POSITION: Alt: %f\n", sts->home_alt);
                     }
+                    if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_ATTITUDE)
+                    {
+                        mavlink_msg_attitude_decode(&mavlink_str->msg, &mavlink_str->attitude);
+                        sts->roll[id] = (double)mavlink_str->attitude.roll;
+                        sts->pitch[id] = (double)mavlink_str->attitude.pitch;
+                        sts->yaw[id] = (double)mavlink_str->attitude.yaw;
+                        //printf("Received ATTITUDE: Roll: %f, Pitch: %f, Yaw: %f\n", sts->roll, sts->pitch, sts->yaw);
+                    }
                     /*if (mavlink_str->msg.msgid == MAVLINK_MSG_ID_MISSION_ITEM_REACHED)
                     {
                         mavlink_msg_mission_item_reached_decode(&mavlink_str->msg, &mavlink_str->mission_item_reached);

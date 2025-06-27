@@ -90,11 +90,15 @@ typedef struct{
     double stable_lon[UAV_COUNT][4];
     int stable_alt[UAV_COUNT][4];
     int loiter[UAV_COUNT];
+    double roll[UAV_COUNT];
+    double pitch[UAV_COUNT];
+    double yaw[UAV_COUNT];
 
     double last_pos_error[3][2];  // Previous position error for each UAV
     double int_error[3][2];       // Integral error for each UAV
 
     int mission_state; // 0: do nothing, 1: set guided mode, 2: set auto mode, 3: attack mode
+    float desired_roll_angle[3]; //desired roll angle for the UAV
 } sts;
 
 typedef struct{
