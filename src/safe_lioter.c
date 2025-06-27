@@ -104,6 +104,22 @@ int main() {
     printf("Leader: Assigned Velocity = %.2f m/s\n", V_leader);
     return 0;
 }*/
+static double apf_meter(double p_lat, double p_lon, double goal_lat, double goal_lon)
+{
+    double dlat = p_lat - goal_lat;  
+    double dlon = p_lon - goal_lon;  
+    double lat1 = goal_lat * DEG_TO_RAD;
+    double lat2 = p_lat * DEG_TO_RAD;
+    double dlat_rad = dlat * DEG_TO_RAD;
+    double dlon_rad = dlon * DEG_TO_RAD;
+
+    double a = sin(dlat_rad/2) * sin(dlat_rad/2) +
+               cos(lat1) * cos(lat2) * 
+               sin(dlon_rad/2) * sin(dlon_rad/2);
+    double c = 2 * atan2(sqrt(a), sqrt(1-a));
+    //printf("distance: %.2f meters\n", sts->t2m_distance[0]);
+    return (EARTH_RADIUS * c);
+}
 #include <math.h>
 #include <stddef.h>
 
@@ -120,19 +136,31 @@ int main() {
 void apf_3d(
     double **p, double **p_goal, int num_drones, int i,
     double k_att, double k_rep, double d0,
-    double *F_out
+    double *F_out, sts *sts
 ) {
     // Attractive force
     for (int d = 0; d < DIM; ++d)
-        F_out[d] = -k_att * (p[i][d] - p_goal[i][d]);
+    {
+        if (d == 0)
+            F_out[d] = k_att * apf_meter(p[i][d], 0.0, p_goal[i][d], 0.0);
+        else if (d == 1)
+            F_out[d] = k_att * apf_meter(0.0, p[i][d], 0.0, p_goal[i][d]);
+        else if (d == 2)
+            F_out[d] = k_att * (sts->alt_hud[i] - p_goal[i][d]);
+    }
 
     // Repulsive force from other drones
-    for (int j = 0; j < num_drones; ++j) {
+    for (int j = 0; j < UAV_COUNT; ++j) {
         if (j == i) continue;
         double diff[DIM];
         double dist = 0.0;
         for (int d = 0; d < DIM; ++d) {
-            diff[d] = p[i][d] - p[j][d];
+            if (d == 0)
+                diff[d] = apf_meter(p[i][d], 0.0, p[j][d], 0.0);
+            else if (d == 1)
+                diff[d] = apf_meter(0.0, p[i][d], p[j][d], 0.0);
+            else if (d == 2)   
+                diff[d] = sts->alt_hud[i] - p[j][d];
             dist += diff[d] * diff[d];
         }
         dist = sqrt(dist);

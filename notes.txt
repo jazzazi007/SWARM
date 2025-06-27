@@ -177,3 +177,7 @@ int send_mavlink_message(int sockfd, struct sockaddr_in* target_addr) {
     printf("Sent message with length: %d\n", len);
     return 0;
 }
+
+*impelemt velocity to detrmine the aviodance heading
+*impelemt heading field of view to start the apf 
+*EKF of velocity
