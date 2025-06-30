@@ -99,6 +99,7 @@ typedef struct{
 
     int mission_state; // 0: do nothing, 1: set guided mode, 2: set auto mode, 3: attack mode
     float desired_roll_angle[3]; //desired roll angle for the UAV
+    int status;
 } sts;
 
 typedef struct{
@@ -141,6 +142,7 @@ typedef struct {
     uint16_t roll[UAV_COUNT]; //joy 2
     uint16_t throttle[UAV_COUNT]; //joy 1
     uint16_t yaw[UAV_COUNT]; //joy 0
+    uint16_t button; //joy 4
 } joy_s;
 
 typedef struct{

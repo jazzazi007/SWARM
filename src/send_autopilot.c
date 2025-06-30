@@ -133,7 +133,30 @@ void send_override(joy_s *joy, sockport *sock, int id)
     }
 }*/
 
-void send_reposition(sockport *sock, sts *sts, int id) {
+void limits_bank(sts *sts, sockport *sock, int id)
+{
+    mavlink_param_set_t param_set;
+    mavlink_message_t msg;
+    uint8_t buf[BUFFER_LENGTH];
+    uint16_t len;
+    strncpy(param_set.param_id, "ROLL_LIMIT_DEG", 16);
+    param_set.param_value = 30.0f;
+    param_set.target_system = DEFAULT_TARGET_SYSTEM;
+    param_set.target_component = DEFAULT_TARGET_COMPONENT;
+    param_set.param_type = MAV_PARAM_TYPE_REAL32;
+    mavlink_msg_param_set_encode(GCS_SYSTEM_ID, GCS_COMPONENT_ID, &msg, &param_set);
+    len = mavlink_msg_to_send_buffer(buf, &msg);
+    int ret = sendto(sock->sockfd[id], buf, len, 0,
+                     (struct sockaddr*)&sock->autopilot_addr[id],
+                     sizeof(sock->autopilot_addr[id]));
+    if (ret == -1) {
+        perror("sendto failed");
+    } else {
+        printf("Bank limit set to 30 degrees for UAV %d\n", id);    
+    }
+}
+
+void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
     mavlink_message_t msg;
     uint8_t buf[BUFFER_LENGTH];
     uint16_t len;
@@ -159,11 +182,47 @@ void send_reposition(sockport *sock, sts *sts, int id) {
     {
         lat = (int32_t)(-35.3708726 * 1e7);
         lon = (int32_t)(149.1726422 * 1e7);
-        alt = 100;  // Altitude in meters
+        if (id == 0)
+            alt = 120;  // Altitude in meters
+        else
+            alt = 100;  // Altitude in meters
         if (id == 0)
             lioter = sts->loiter[0];
         else
             lioter = sts->loiter[id];
+        sts->status = 4;
+    }
+    if (sts->status == 4 && joy->button == 1)
+    {//-35.3737245 149.1580725
+        if (id == 0)
+        {
+            lat = (int32_t)(-35.3737245 * 1e7);
+            lon = (int32_t)(149.1580725 * 1e7);
+            alt = 100;  // Altitude in meters
+        }
+        else
+        {
+            lat = (int32_t)(sts->req_lat[id] * 1e7);
+            lon = (int32_t)(sts->req_lon[id] * 1e7);
+            alt = 100;  // Altitude in meters
+        }
+        if (sts->t2m_altitude[0] < 250)
+        {//-35.3669006 149.1709042
+            limits_bank(sts, sock, 0);
+            if (id == 0)
+            {
+                lat = (int32_t)(-35.3669006 * 1e7);
+                lon = (int32_t)(149.1709042 * 1e7);
+            }
+            else
+            {
+                lat = (int32_t)(sts->req_lat[id] * 1e7);
+                lon = (int32_t)(sts->req_lon[id] * 1e7);
+            }
+            alt = 100;
+
+        }
+
     }
     // Pack the MAV_CMD_DO_REPOSITION command
     mavlink_msg_command_int_pack(
@@ -255,7 +314,7 @@ void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
             break;
         case 2: // Set AUTO mode for fixed-wing
             //if (id != 0)
-                send_reposition(sock, sts, id);
+                send_reposition(sock, sts, joy ,id);
             
             break;
     }

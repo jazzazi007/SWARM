@@ -43,6 +43,38 @@ void safe_alt(sts *sts)
                 turn+=1;
     }
 }
+//** 
+// Function to calculate bearing and altitude difference
+void calculate_bearing_alt(sts *sts, int id)
+{
+    // Convert to radians
+    double lat1 = sts->gps_lat[id] * DEG_TO_RAD;
+    double lon1 = sts->gps_lon[id] * DEG_TO_RAD;
+    double lat2 = sts->t_lat[id] * DEG_TO_RAD;
+    double lon2 = sts->t_lon[id] * DEG_TO_RAD;
+
+    // Calculate bearing
+    double dlon = lon2 - lon1;
+    double y = sin(dlon) * cos(lat2);
+    double x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon);
+    sts->bearing[id] = atan2(y, x);
+
+    // Convert to degrees
+    sts->bearing[id] = sts->bearing[id] * RAD_TO_DEG;
+    // Normalize to 0-360
+    sts->bearing[id] = fmod((sts->bearing[id] + 360.0), 360.0);
+
+    // Calculate heading error (difference between current heading and required bearing)
+    sts->bearing_error[id] = sts->bearing[id] - sts->heading[id];
+    // Normalize to -180 to +180
+    if (sts->bearing_error[id] > 180) sts->bearing_error[id] -= 360;
+    if (sts->bearing_error[id] < -180) sts->bearing_error[id] += 360;
+
+    sts->t2m_altitude[id] = sts->gps_alt[id] - sts->t_alt[id];
+
+    //printf("Current heading: %.2f°, Bearing to home: %.2f°, Error: %.2f°, different alt: %.2f\n", 
+      //     sts->heading, sts->bearing, sts->bearing_error, sts->t2m_altitude);
+}
 
 void extreme_turn(sts *sts)
 {
@@ -61,7 +93,8 @@ void extreme_turn(sts *sts)
     sts->desired_roll_angle[0] = roll_angle;
     // sts->desired_roll_angle = sts->desired_roll_angle + 0.8 *sts->yaw_err_angle;
 }
-
+//function of extreme turns
+//**
 
 //part of long
 #include <stdio.h>
@@ -174,5 +207,5 @@ void apf_3d(
 
 void v_recovery(sts *sts)
 {
-
+    
 }

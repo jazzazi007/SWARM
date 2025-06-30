@@ -75,7 +75,7 @@ int main(int ac, char **av) {
         joy.throttle[id] = 1500;
         joy.yaw[id] = 1500;
     }
-
+    sts.status = 1;
 
     if (ac != (UAV_COUNT + 1)) {
         fprintf(stderr, "Usage: %s <UDP port> <UDP port> <UDP port> example: ./gnc.out 5760 5761 5762\n", av[0]);
