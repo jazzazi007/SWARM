@@ -100,6 +100,10 @@ typedef struct{
     int mission_state; // 0: do nothing, 1: set guided mode, 2: set auto mode, 3: attack mode
     float desired_roll_angle[3]; //desired roll angle for the UAV
     int status;
+    //time
+    int prev_sec;
+    int current_sec;
+    bool timeout;
 } sts;
 
 typedef struct{

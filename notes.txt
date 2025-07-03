@@ -182,8 +182,8 @@ int send_mavlink_message(int sockfd, struct sockaddr_in* target_addr) {
 *impelemt heading field of view to start the apf 
 *EKF of velocity
 *Mission:
- 1-> lioter and wait for the agents
- 2-> -35.3708726 149.1726422 
- 3-> -35.3737245 149.1580725
- 4-> -35.3669006 149.1709042
- 5-> landing 
+ 1-> lioter and wait for the agents 1
+ 2-> -35.3708726 149.1726422 2
+ 3-> -35.3737245 149.1580725 3
+ 4-> -35.3669006 149.1709042 4
+ 5-> landing 5

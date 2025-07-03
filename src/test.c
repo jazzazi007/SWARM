@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-int main() {
+/*int main() {
     FILE *fptr;
     fptr = fopen("data.csv", "w");
     if (fptr == NULL) {
@@ -24,5 +24,45 @@ int main() {
     }
 
     fclose(fptr);
+    return 0;
+}*/
+#include <sys/time.h>
+#include <stdio.h>
+#include <unistd.h> // For sleep function
+
+
+int get_time_sec()
+{
+    struct timeval tv;
+    struct timezone t_z;
+
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec);
+}
+
+int min2sec(float min)
+{
+    return min*60;
+}
+typedef struct time
+{
+    int prev_sec;
+    int current_sec;
+} time_s;
+
+
+int main() {
+    int time_sec = get_time_sec();
+    printf("Current time in seconds since epoch: %d\n", time_sec);
+    time_s t;
+    t.prev_sec = get_time_sec();
+    t.current_sec = get_time_sec();
+    while (t.current_sec  - t.prev_sec <= min2sec(0.5))
+    {
+        t.current_sec = get_time_sec();
+        printf("Current time in seconds since epoch: %d\n", t.current_sec - t.prev_sec);
+        sleep(1); // Sleep for 1 second to simulate waiting
+    }
+    printf("1 minute has passed since %d seconds\n", t.prev_sec);
     return 0;
 }

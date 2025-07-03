@@ -171,6 +171,8 @@ void apf_3d(
     double k_att, double k_rep, double d0,
     double *F_out, sts *sts
 ) {
+    (void)num_drones;
+    (void)sts;
     // Attractive force
     for (int d = 0; d < DIM; ++d)
     {
@@ -205,7 +207,3 @@ void apf_3d(
     }
 }
 
-void v_recovery(sts *sts)
-{
-    
-}

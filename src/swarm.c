@@ -13,7 +13,7 @@ static void meter2gps(sts *sts, double hype, int deg, int id)
     double dl_y = hype * sin(heading) + 0 * cos(heading);
     sts->req_lat[id] = sts->gps_lat[0] + dl_x / EARTH_RADIUS * RAD_TO_DEG;
     sts->req_lon[id] = sts->gps_lon[0] + dl_y / (EARTH_RADIUS * cos(lat0_rad)) * RAD_TO_DEG;
-    sts->req_alt[id] = sts->gps_alt[0];
+    sts->req_alt[id] = 100;
     // printf("ID GPS: %d\n", id);
     // printf("main lat: %f, main lon: %f\n", sts->gps_lat[0], sts->gps_lon[0]);
     // printf("req lat: %f, req lon: %f req Alt: %f\n", sts->req_lat[id], sts->req_lon[id], sts->req_alt[id]);
@@ -21,9 +21,9 @@ static void meter2gps(sts *sts, double hype, int deg, int id)
 
 void gps2meter(sts *sts)
 {
-    double dlat = sts->gps_lat[0] - (-35.3708726);  
-    double dlon = sts->gps_lon[0] - 149.1726422;  
-    double lat1 = (-35.3708726) * DEG_TO_RAD;
+    double dlat = sts->gps_lat[0] - sts->t_lat[0];  
+    double dlon = sts->gps_lon[0] - sts->t_lon[0];  
+    double lat1 = sts->t_lat[0] * DEG_TO_RAD;
     double lat2 = sts->gps_lat[0] * DEG_TO_RAD;
     double dlat_rad = dlat * DEG_TO_RAD;
     double dlon_rad = dlon * DEG_TO_RAD;

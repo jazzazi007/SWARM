@@ -25,6 +25,23 @@
 #define PLANE_MODE_RTL       11
 #define PLANE_MODE_FBWA      5
 
+int get_time_sec()
+{
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec);
+}
+
+int min2sec(float min)
+{
+    return min*60;
+}
+typedef struct time
+{
+    int prev_sec;
+    int current_sec;
+} time_s;
 
 void reposition(sockport *sock, sts *sts, int id)
 {
@@ -135,6 +152,7 @@ void send_override(joy_s *joy, sockport *sock, int id)
 
 void limits_bank(sts *sts, sockport *sock, int id)
 {
+    (void)sts;
     mavlink_param_set_t param_set;
     mavlink_message_t msg;
     uint8_t buf[BUFFER_LENGTH];
@@ -157,29 +175,43 @@ void limits_bank(sts *sts, sockport *sock, int id)
 }
 
 void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
+    (void)joy;
     mavlink_message_t msg;
     uint8_t buf[BUFFER_LENGTH];
     uint16_t len;
     int32_t lat, lon;
     float alt;
     float lioter = 0.0f;
-
-    if (id ==0)
+    if (sts->status != 3 && sts->status != 4)
     {
-    // Convert coordinates to fixed-point
-        lat = (int32_t)(-35.3708726 * 1e7);
-        lon = (int32_t)(149.1726422 * 1e7);
-        alt = 100;  // Altitude in meters
-    }
-    else
-    {
+        if (id ==0)
+        {
         // Convert coordinates to fixed-point
-        lat = (int32_t)(sts->req_lat[id] * 1e7);
-        lon = (int32_t)(sts->req_lon[id] * 1e7);
-        alt = 100;  // Altitude in meters
+            lat = (int32_t)(-35.3708726 * 1e7);
+            lon = (int32_t)(149.1726422 * 1e7);
+            sts->t_lat[id] = -35.3708726;
+            sts->t_lon[id] = 149.1726422;
+            alt = 100;  // Altitude in meters
+        }
+        else
+        {
+            // Convert coordinates to fixed-point
+            lat = (int32_t)(sts->req_lat[id] * 1e7);
+            lon = (int32_t)(sts->req_lon[id] * 1e7);
+            alt = 100;  // Altitude in meters
+        }
     }
-    if (sts->t2m_distance[0] < 250)
+    if (!sts->timeout && sts->t2m_distance[0] < 260)
     {
+        sts->current_sec = get_time_sec();
+        sts->prev_sec = sts->current_sec;
+        sts->timeout = true;
+    }
+    if (sts->t2m_distance[0] < 250 && (sts->current_sec - sts->prev_sec) < min2sec(2))
+    {
+        printf("reposition after 2 min");
+        printf("target to meter distance: %f\n", sts->t2m_distance[0]);
+        sts->status = 4;
         lat = (int32_t)(-35.3708726 * 1e7);
         lon = (int32_t)(149.1726422 * 1e7);
         if (id == 0)
@@ -190,39 +222,45 @@ void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
             lioter = sts->loiter[0];
         else
             lioter = sts->loiter[id];
-        sts->status = 4;
     }
-    if (sts->status == 4 && joy->button == 1)
-    {//-35.3737245 149.1580725
-        if (id == 0)
-        {
-            lat = (int32_t)(-35.3737245 * 1e7);
-            lon = (int32_t)(149.1580725 * 1e7);
-            alt = 100;  // Altitude in meters
+    else if ((sts->current_sec - sts->prev_sec) > min2sec(2)) {
+        // Only transition to status 3 if not already in rejoining state
+        if (sts->status != 3 && sts->status != 5) {
+            // Enter rejoining state (status 5)
+            sts->status = 5;
+            // Set rejoining waypoint
+            if (id == 0) {
+                lat = (int32_t)(-35.3737245 * 1e7);
+                lon = (int32_t)(149.1580725 * 1e7);
+                sts->t_lat[0] = -35.3737245;
+                sts->t_lon[0] = 149.1580725;
+                alt = 100;
+            } else {
+                lat = (int32_t)(sts->req_lat[id] * 1e7);
+                lon = (int32_t)(sts->req_lon[id] * 1e7);
+                alt = 100;
+            }
+            gps2meter(sts);
         }
-        else
-        {
-            lat = (int32_t)(sts->req_lat[id] * 1e7);
-            lon = (int32_t)(sts->req_lon[id] * 1e7);
-            alt = 100;  // Altitude in meters
+        // If already in rejoining state, check distance to switch to V-shape
+        else if (sts->status == 5) {
+            gps2meter(sts);
+            if (sts->t2m_distance[0] < 350) {
+                sts->status = 3; // Now switch to V-shape
+            }
         }
-        if (sts->t2m_altitude[0] < 250)
-        {//-35.3669006 149.1709042
+        // If in V-shape, set bank limits and update leader position
+        if (sts->status == 3) {
             limits_bank(sts, sock, 0);
-            if (id == 0)
-            {
+            if (id == 0) {
                 lat = (int32_t)(-35.3669006 * 1e7);
                 lon = (int32_t)(149.1709042 * 1e7);
-            }
-            else
-            {
+            } else {
                 lat = (int32_t)(sts->req_lat[id] * 1e7);
                 lon = (int32_t)(sts->req_lon[id] * 1e7);
             }
             alt = 100;
-
         }
-
     }
     // Pack the MAV_CMD_DO_REPOSITION command
     mavlink_msg_command_int_pack(
@@ -267,6 +305,8 @@ void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
     if (ret == -1) {
         perror("sendto failed");
     }
+    sts->current_sec = get_time_sec();
+
 }
 
 void send_autopilot(sockport *sock, sts *sts, joy_s *joy, int id)
