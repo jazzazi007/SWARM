@@ -169,9 +169,9 @@ void limits_bank(sts *sts, sockport *sock, int id)
                      sizeof(sock->autopilot_addr[id]));
     if (ret == -1) {
         perror("sendto failed");
-    } else {
-        printf("Bank limit set to 30 degrees for UAV %d\n", id);    
     }
+    //else
+        //printf("Bank limit set to 30 degrees for UAV %d\n", id);    
 }
 
 void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
@@ -209,8 +209,6 @@ void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
     }
     if (sts->t2m_distance[0] < 250 && (sts->current_sec - sts->prev_sec) < min2sec(2))
     {
-        printf("reposition after 2 min");
-        printf("target to meter distance: %f\n", sts->t2m_distance[0]);
         sts->status = 4;
         lat = (int32_t)(-35.3708726 * 1e7);
         lon = (int32_t)(149.1726422 * 1e7);
@@ -244,14 +242,20 @@ void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
                 sts->t_lat[0] = -35.3737245;
                 sts->t_lon[0] = 149.1580725;
                 alt = 100;
+                printf("id - in uav 0\n");
             } else {
                 lat = (int32_t)(sts->req_lat[id] * 1e7);
                 lon = (int32_t)(sts->req_lon[id] * 1e7);
                 alt = 100;
+                printf("id - in uav %d\n", id);
             }
             gps2meter(sts);
-            if (sts->t2m_distance[0] < 350)
+            printf("target to meter distance: %f\n", sts->t2m_distance[0]);
+            if (sts->t2m_distance[0] < 350 && id == 0)
+            {
+                printf("reposition to state 3\n");
                 sts->status = 3;
+            }
         }
     }
     // Pack the MAV_CMD_DO_REPOSITION command
