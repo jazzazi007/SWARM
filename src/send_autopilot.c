@@ -225,10 +225,19 @@ void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
     }
     else if ((sts->current_sec - sts->prev_sec) > min2sec(2)) {
         // Only transition to status 3 if not already in rejoining state
-        if (sts->status != 3 && sts->status != 5) {
-            // Enter rejoining state (status 5)
-            sts->status = 5;
-            // Set rejoining waypoint
+        if (sts->status == 3) {
+            limits_bank(sts, sock, 0);
+            if (id == 0) {
+                lat = (int32_t)(-35.3669006 * 1e7);
+                lon = (int32_t)(149.1709042 * 1e7);
+            } else {
+                lat = (int32_t)(sts->req_lat[id] * 1e7);
+                lon = (int32_t)(sts->req_lon[id] * 1e7);
+            }
+            alt = 100;
+        }
+        else
+        {
             if (id == 0) {
                 lat = (int32_t)(-35.3737245 * 1e7);
                 lon = (int32_t)(149.1580725 * 1e7);
@@ -241,25 +250,8 @@ void send_reposition(sockport *sock, sts *sts, joy_s *joy,int id) {
                 alt = 100;
             }
             gps2meter(sts);
-        }
-        // If already in rejoining state, check distance to switch to V-shape
-        else if (sts->status == 5) {
-            gps2meter(sts);
-            if (sts->t2m_distance[0] < 350) {
-                sts->status = 3; // Now switch to V-shape
-            }
-        }
-        // If in V-shape, set bank limits and update leader position
-        if (sts->status == 3) {
-            limits_bank(sts, sock, 0);
-            if (id == 0) {
-                lat = (int32_t)(-35.3669006 * 1e7);
-                lon = (int32_t)(149.1709042 * 1e7);
-            } else {
-                lat = (int32_t)(sts->req_lat[id] * 1e7);
-                lon = (int32_t)(sts->req_lon[id] * 1e7);
-            }
-            alt = 100;
+            if (sts->t2m_distance[0] < 350)
+                sts->status = 3;
         }
     }
     // Pack the MAV_CMD_DO_REPOSITION command
